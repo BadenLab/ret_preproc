@@ -100,12 +100,10 @@ ImageStats/Q InputData2_frame2
 variable InputData2_brightness = V_Avg
 InputData[][][]/=InputData2[p][q][r]/InputData2_brightness
 
-
 if (Detrend_RatiometricData==0)
 	print "Complete... (no detrending done, only Channel division)"
 	OutputData[][][]=InputData[p][q][r]
 else
-
 	// calculate size of smoothing window
 	variable Framerate = 1/(nY * 0.002) // Hz
 	variable Smoothingfactor = Framerate * nSeconds_smooth
@@ -138,3 +136,7 @@ killwaves CurrentTrace,InputData,OutputData,InputData2,InputData2_frame2
 
 	
 end
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+

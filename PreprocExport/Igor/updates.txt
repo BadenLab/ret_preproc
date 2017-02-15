@@ -1,0 +1,28 @@
+
+updates 26/27 01 2017 (Tom)
+
+OS GUI change name of 1st button
+OS Parameter table - now checks if a table exists, in which case it just shows that rather than overwriute
+OS Roi Manual place - now allows to use edge pixels.But it will give an out of range bug. This could be fixed with endless if clauses so I didnt do that. It works
+		- also added a few linescan exception clauses (if nY==1)
+OS Traces and Triggers -now also extracts the stim artifact and displays under traces
+		- also now only plots the 1 in 20 trigger thing if Triggermode is left unchanged at 1. otherwise it shows the triggermode skips
+		- also fixed a ROI rescaling bug when coming out of correlation ROI proc with bin>1
+		-also inverts the trigger channel as needed on our scopes
+OS Averaging - now also averages the stim artifact and displays
+OS Event finder	-updated like Averaging function to also show the Stim Artifact
+OS Export - added a note that the STimaftifact waves need to be also exported (not implemented)
+OS Traces and Triggers added an override for the GeoC function if linescan (GeoC fails if nY==1)
+OS LineScanFormat - new prodecure that converts any scan to an nY == 1 and displays X vs time as image. the output then is compatible
+		with the rest of the GUI functions.
+OS GUI-added new Step 0 for linescan.Renamed RF for Kernel fornow. Need to still add kernel script
+OS_LaunchCellLab -fixed the Light Artifact issue so now can see the saw data. also there is a little hack so that it allows to use non square scans
+		by now expanding the data given to it to a square.
+OS_LED_Kernel - new function added. Also uses the NoiseArray4LEDs.ipf file
+
+updates 2017 02 06
+
+OS_GUI added Pixels to Manual ROI apply
+OS_ManualROI added new function "OS_monoPixelApply"
+OS_LED_Kernel - added new function OS_KernelMAp (ish) 
+  

@@ -2,6 +2,12 @@
 
 function OS_ParameterTable()
 
+// 1 // check for Parameter Table
+if (waveexists($"OS_Parameters")==1)
+	print "OS_Parameters table already exists - just opening that..."
+else
+	print "Genertating new OS_Parameters table..."
+
 // make a new table
 make /o/n=100 OS_Parameters = NaN
 
@@ -53,7 +59,7 @@ OS_Parameters[%Display_Stuff] = 1 // generate graphs? - 0/1 - default 1
 entry_position+=1
 
 SetDimLabel 0,entry_position,LightArtifact_cut,OS_Parameters
-OS_Parameters[%LightArtifact_cut] = 3 // nPixels cut in X to remove LightArtifact - default 3
+OS_Parameters[%LightArtifact_cut] = 5 // nPixels cut in X to remove LightArtifact - default 3
 entry_position+=1
 
 SetDimLabel 0,entry_position,StimulatorDelay,OS_Parameters
@@ -184,6 +190,17 @@ SetDimLabel 0,entry_position,AverageStack_dF,OS_Parameters
 OS_Parameters[%AverageStack_dF] = 1 // Subtract Average
 entry_position+=1
 
+/// QuickCluster  /////////////////////////////////////////////////////////////////////////
+
+SetDimLabel 0,entry_position,Clustering_nClasses,OS_Parameters
+OS_Parameters[%Clustering_nClasses] = 10 // how many Classes seeded into Clustering (kMeans)
+entry_position+=1
+
+SetDimLabel 0,entry_position,Clustering_SDplot,OS_Parameters
+OS_Parameters[%Clustering_SDplot] = 5 // nSDs plotted in Clustering display
+entry_position+=1
+
+
 /// EVENT TRIGGERING  ////////////////////////////////////////////////////////////////////////
 
 SetDimLabel 0,entry_position,Events_nMax,OS_Parameters
@@ -208,8 +225,20 @@ SetDimLabel 0,entry_position,Noise_EventSD,OS_Parameters
 OS_Parameters[%Noise_EventSD] = 0.7 // Sensitivity of Event triggering
 entry_position+=1
 
+SetDimLabel 0,entry_position,Noise_interval_sec,OS_Parameters
+OS_Parameters[%Noise_interval_sec] = 0.078 // Refresh rate of the Noise (in seconds)
+entry_position+=1
+
 SetDimLabel 0,entry_position,Noise_FilterLength_s,OS_Parameters
-OS_Parameters[%Noise_FilterLength_s] = 1 // Length extracted in seconds
+OS_Parameters[%Noise_FilterLength_s] = 1.3 // Length extracted in seconds
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_SDplot,OS_Parameters
+OS_Parameters[%Kernel_SDplot] = 30 // nSDs plotted in kernel function
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_SDHistplot,OS_Parameters
+OS_Parameters[%Kernel_SDHistplot] = 1.5 // nSDs plotted in kernelMap histogram function
 entry_position+=1
 
 SetDimLabel 0,entry_position,Noise_Compression,OS_Parameters
@@ -218,6 +247,8 @@ entry_position+=1
 
 /// redimension the OS_parameter table, so it doesn't have trailing NaN's
 redimension /N=(entry_position) OS_Parameters
+
+endif
 		
 // Display the Table
 edit /k=1 /W=(50,50,300,700)OS_Parameters.l, OS_Parameters

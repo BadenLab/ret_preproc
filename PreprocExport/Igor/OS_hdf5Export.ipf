@@ -1,6 +1,9 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 
 Function OS_hdf5Export()
+
+	// WARNING- currently not exporting the StimArtifactwave -needs to update at somepoint
+
 	Variable fileID
 	WAVE/z OS_Parameters,ROIs,Traces0_raw,Traces0_znorm,Tracetimes0,Triggertimes,Triggervalues,wDataCh0,wDataCh1,wDataCh2
 	WAVE/z stack_ave, stack_ave_report, GeoC, Snippets0,SnippetsTimes0,wParamsNum,wParamsStr

@@ -26,6 +26,7 @@ endif
 
 // flags from "OS_Parameters"
 variable Display_RoiMask = OS_Parameters[%Display_Stuff]
+variable X_cut = OS_Parameters[%LightArtifact_cut]
 
 // data handling
 string input_name = "wDataCh"+Num2Str(Channel)+"_detrended"
@@ -39,8 +40,8 @@ variable nF = DimSize(InputData,2)
 variable xx,yy
 
 // make average image
-make /o/n=(nX,nY) Stack_ave = 0
-for (xx=0;xx<nX;xx+=1)
+make /o/n=(nX,nY) Stack_ave = InputData[nX/2][nY/2][nF/2] // so that Light Artifact is rioughly the same brightness as the rest of the scan
+for (xx=X_Cut;xx<nX;xx+=1)
 	for (yy=0;yy<nY;yy+=1)
 		make /o/n=(nF) currentwave = InputData[xx][yy][p]
 		Wavestats/Q Currentwave
@@ -50,9 +51,22 @@ endfor
 
 
 
+
+// CellLab only accepts square scans. So if scan is not square, here extend the Image it works with to be square
+if (nX==nY)
+	string sourcename = "Stack_ave"
+
+else
+	make /o/n=(nX,nX) Stack_Ave_square = InputData[nX/2][nY/2][nF/2]
+	Stack_Ave_square[][0,nX-nY]=Stack_Ave[p][q]
+	//Setscale 
+	sourcename = "Stack_ave_square"
+	
+endif
+	string targetname = "ROIs"
+
 // call cell lab
-string sourcename = "Stack_ave"
-string targetname = "ROIs"
+
 RecognizeCellsUI($sourcename, targetname, "")
 
 

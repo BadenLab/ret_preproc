@@ -65,9 +65,15 @@ string output_name6 = "Triggertimes_Frame"
 
 duplicate /o $input_name1 InputData
 duplicate /o $input_name2 InputTriggers
+
+// inverting trigger channel
+InputTriggers*=-1
+InputTriggers+=2^16
+
 variable nX = DimSize(InputData,0)
 variable nY = DimSize(InputData,1)
 variable nF = DimSize(InputData,2)
+
 wave ROIs
 variable nRois = Wavemin(ROIs)*(-1)
 make /o/n=(nF,nRois) OutputTraces_raw = 0
@@ -80,16 +86,16 @@ make /o/n=(nX,nY,nF) OutputPixelTimes = NaN
 variable FrameDuration = nY * LineDuration
 
 // call SARFIA function GeoC to get ROI positions
-setscale x, 0, nX, ROIs // so that Geometric centre reads out pixel not microns KF 20160310
-setscale y, 0, nY, ROIs
-GeometricCenter(ROIs)
-// calculate Pixel / ROI sizes in microns
-variable zoom = wParamsNum(30) // extract zoom
-variable px_Size = (0.65/zoom * 110)/nX // microns
-setscale /p x,-nX/2*px_Size,px_Size,"µm" ROIs // scale ROIs back to what they were - related to KF 20160310 above - fix by Tom
-setscale /p y,-nY/2*px_Size,px_Size,"µm"  ROIs
+duplicate /o ROIs ROIs_temp // copy so that dont change ROIs scaling
+setscale x, 0, nX, ROIs_temp // so that Geometric centre reads out pixel not microns KF 20160310
+setscale y, 0, nY, ROIs_temp
+GeometricCenter(ROIs_temp)
+killwaves ROIs_temp
 
 wave GeoC
+if (nY==1) // if it is a linescan, the GeoC function doesnt work
+	make /o/n=(nRois) GeoC = 0
+endif
 
 variable ff,xx,yy,rr,tt
 
@@ -134,7 +140,7 @@ if (SkipLastTrigger == 1) // KF 20160310
 endif
 print nTriggers, " Triggers found"
 if (TriggerMode>1)
-	print "Skipping every",TriggerMode,",Triggers!"
+	print "Display is skipping every",TriggerMode,",Triggers as defined by the TriggerMode parameter"
 endif	
 
 //redimension OutputTriggerValues so it doesn't have trailing NaN's
@@ -169,6 +175,18 @@ for (rr=0;rr<nRois;rr+=1)
 	OutputTraces_zscore[][rr]=(OutputTraces_raw[p][rr]-V_Avg)/V_SDev
 	OutputTraceTimes[][rr]=p*nY*LineDuration + GeoC[rr][1]*LineDuration  + StimulatorDelay/1000 // correct each ROIs timestamp by it's Y position in the scan // use y values not x values KF 20160310 // and by stimulator delay!
 endfor
+// Also extract the stimulus artifact in 2ms precision:
+make /o/n=(nY*nF) StimArtifact = NaN
+setscale /p x,0,LineDuration,"s" StimArtifact
+for (ff=0;ff<nF;ff+=1)
+	for (yy=0;yy<nY;yy+=1)
+		StimArtifact[ff*nY+yy]=InputData[0][yy][ff]
+	endfor
+endfor
+Wavestats/Q StimArtifact
+StimArtifact-=V_Min
+StimArtifact/=V_Max-V_Min
+
 
 // export handling
 duplicate /o OutputTraces_raw $output_name1
@@ -181,6 +199,12 @@ duplicate/ o OutputTriggerTimes_Frame $output_name6
 // Display
 if (Display_traces==1)
 	display /k=1
+	
+	Appendtograph /l=StimY StimArtifact
+	ModifyGraph noLabel(StimY)=2,axThick(StimY)=0,lblPos(StimY)=47;DelayUpdate
+	ModifyGraph axisEnab(StimY)={0.05,0.15},freePos(StimY)={0,kwFraction}
+	ModifyGraph rgb(StimArtifact)=(0,0,0)
+
 	// traces
 	make /o/n=(1) M_Colors
 	Colortab2Wave Rainbow256
@@ -194,14 +218,14 @@ if (Display_traces==1)
 		ModifyGraph rgb($CurrentTraceName)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
 	endfor
 
-	ModifyGraph zero(TracesY)=2,fSize=8,lblPos(TracesY)=48,axisEnab(TracesY)={0.05,1};DelayUpdate
+	ModifyGraph zero(TracesY)=2,fSize=8,lblPos(TracesY)=48,axisEnab(TracesY)={0.2,1};DelayUpdate
 	ModifyGraph axisEnab(bottom)={0.05,1},freePos(TracesY)={0,kwFraction};DelayUpdate
 	Label TracesY "\\Z10Amplitude (SD)";DelayUpdate
-	Label bottom "\\Z10Time (s)"
+	Label bottom "\\Z10Time (\U)"
 	
 	// triggers
-	variable nTriggers_skip = TriggerMode // otherwise it takes ages to display things like noise triggers... now it only plots every 20th trigger
-	if (nTriggers>100)
+	variable nTriggers_skip = TriggerMode // plots only every Triggermode-th Trigger
+	if (nTriggers>100 && Triggermode == 1) // unless there are lots of triggers and Triggermode is 1 (which would take ages to plot so only show one in 20)
 		nTriggers_skip = 20
 		print "Note: displaying only one in 20 Triggers!"
 	endif
