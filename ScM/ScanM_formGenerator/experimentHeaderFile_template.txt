@@ -1,44 +1,25 @@
-400,100,950,800
+400,100,950,850
 title=Project|key=|type=subheader.
 title=experimenter's last name|key=userName|type=string.
 title=project name|key=projName|type=string.
 title=date (yyyy-mm-dd)|key=date|type=string.
-title=setup ID (1-3)|key=setupID|type=popup|options=unknown;1;2;3.
+title=setup ID (1-2)|key=setupID|type=popup|options=unknown;1;2.
 
 title=Animal|key=|type=subheader.
-title=species|key=animSpecies|type=popup|options=none;mouse;zebrafish;other.
+title=species|key=animSpecies|type=popup|options=none;zebrafish;chicken;fruitfly;mouse;cellculture;other.
 title=gender|key=animGender|type=popup|options=unknown;female;male.
 title=date of birth (yyyy-mm-dd)|key=animDOB|type=string.
-title=breeding cage ID|key=animCageID|type=string.
+title=tank/cage ID|key=animCageID|type=string.
 
 title=unique animal ID|key=animID|type=string.
-title=(format: initials+data+animal index, for example KF20160509_1)|type=comment.
+title=(format: initials+data+animal index, for example TB20170101_1)|type=comment.
 
 title=eye|key=eye|type=popup|options=unknown;left;right.
-title=comments on animal|key=animRem|type=string.
+title=genetics|key=animRem|type=string.
+title=(format: for example Ribeye:syGCaMP6)|type=comment.
 
 title=Animal procedures|key=|type=subheader.
 title=dark adaptation [hours]|key=darkAdapt_hrs|type=float|default=1|range=0;24|digits=1.
-title=brain-injected|key=isBrainInject|type=checkbox.
-title=tracer|key=tracer|type=popup|options=none;retrobeads.
-title=injection quality (0-10)|key=brainInjectQ|type=popup|options=n/a;0;1;2;3;4;5;6;7;8;9;10.
-title=comments on brain injection|key=brainInjectRem|type=string.
-
-title=Genetics (mouse)|key=|type=subheader.
-title=mouse line|key=genLine|type=popup|options=none;Bl6;HR2.1_TNXL;Pcp2_Cre;PV_Cre;rd1;rd10;cpfl1;rd1xHR21_TNXL.
-title=comments on background line|key=genBkgLineRem|type=string.
-title=Cre reporter line|key=genLine_Reporter|type=popup|options=none;Ai9;Ai95;Ai38;other.
-title=comments on Cre reporter line|key=genLine_ReporterRem|type=string.
-title=virus-injected|key=isVirusInject|type=checkbox.
-title=injection quality (0-10)|key=virusInjectQ|type=popup|options=n/a;0;1;2;3;4;5;6;7;8;9;10.
-title=injectorix's last name|key=virusInjectName|type=string.
-title=comments on injection|key=virusInjectRem|type=string.
-title=expression quality (0-10)|key=virusExprQ|type=list|options=n/a;0;1;2;3;4;5;6;7;8;9;10.
-title=virus vector|key=virusVect|type=list|options=none;AAV.
-title=virus serotype|key=virusSerotype|type=string.
-title=virus promoter|key=virusProm|type=list|options=unknown;CAG;Syn1.
-title=conditional expression|key=virusExprCond|type=list|options=none;FLEX;ubiquitous.
-title=transfected protein|key=virusTransProtein|type=list|options=none;ArcLightD;ArcLightDCO;ClopHensor;iGluSnFR;GCaMP5;GCaMP6s;GCaMP6f;RCaMP1h;RGeco1.
 
 title=Preparation|key=|type=subheader.
 title=preparation type|key=prep|type=popup|options=none;wholemount;slice;in_vivo.
@@ -46,14 +27,14 @@ title=slice thickness [µm]|key=sliceThickness_um|type=uint32|default=200|range=1
 title=comments on preparation|key=prepRem|type=string.
 
 title=perfused indicators|key=perfuseDye|type=list|options=none;SR101;Fluorescine;CMAC.
-title=(Include here indicators which are introduced to the tissue through the bath solution)|type=comment.
+title=(Indicators in the bath solution, e.g. SR101)|type=comment.
 title=electroporated|key=isEpored|type=checkbox.
 title=indicator dye(s)|key=eporDye|type=list|options=none;OGB1;XRhod2;SR101.
 title=comments on electroporation|key=eporRem|type=string.
 title=bath temperature [°C]|key=bathTemp_degC|type=int32|default=36|range=1;40.
 title=absolute optic disc position (x;y;z)|key=prepWMOpticDiscPos|type=string.
 title=(absolute Sutter coordinates, z coordinate is optional)|type=comment.
-title=retina orientation [deg]|key=prepWMOrient|type=uint8|default=0|range=0;359.
+title=animal/retina orientation [deg]|key=prepWMOrient|type=uint8|default=0|range=0;359.
 title=(clockwise, w/dorsal away from experimenter being 0°)|type=comment.
 
 title=Pharmacology|key=|type=subheader.
