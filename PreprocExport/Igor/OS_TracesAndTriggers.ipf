@@ -48,9 +48,12 @@ variable TriggerHeight_Display = OS_Parameters[%Trigger_DisplayHeight]
 variable LineDuration = OS_Parameters[%LineDuration]
 variable Ignore1stXseconds = OS_Parameters[%Ignore1stXseconds]
 variable IgnoreLastXseconds = OS_Parameters[%IgnoreLastXseconds]
+variable SkipFirstTrigger = OS_Parameters[%Skip_First_Trigger] 
 variable SkipLastTrigger = OS_Parameters[%Skip_Last_Trigger] // KF 20160310
 variable TriggerMode = OS_Parameters[%Trigger_Mode]
 variable StimulatorDelay = OS_Parameters[%StimulatorDelay]
+variable LightArtifactCut = OS_Parameters[%LightArtifact_cut]
+
 
 // data handling
 wave wParamsNum // Reads data-header
@@ -75,6 +78,7 @@ variable nY = DimSize(InputData,1)
 variable nF = DimSize(InputData,2)
 
 wave ROIs
+wave Stack_Ave
 variable nRois = Wavemin(ROIs)*(-1)
 make /o/n=(nF,nRois) OutputTraces_raw = 0
 make /o/n=(nF,nRois) OutputTraces_zscore = 0
@@ -85,16 +89,22 @@ make /o/n=(nF) OutputTriggerValues = NaN
 make /o/n=(nX,nY,nF) OutputPixelTimes = NaN
 variable FrameDuration = nY * LineDuration
 
-// call SARFIA function GeoC to get ROI positions
+// call SARFIA function CenterofMass to get ROI positions (as this uses image brightness as well)
 duplicate /o ROIs ROIs_temp // copy so that dont change ROIs scaling
-setscale x, 0, nX, ROIs_temp // so that Geometric centre reads out pixel not microns KF 20160310
-setscale y, 0, nY, ROIs_temp
-GeometricCenter(ROIs_temp)
-killwaves ROIs_temp
+duplicate /o Stack_Ave image_temp // copy so that dont change ROIs scaling
+imagestats/Q image_temp // need to equalise image to 0-1 for CoM function so that it can weigh position by brightness
+image_temp-=V_Min
+image_temp/=V_Max-V_Min
+image_temp[0,LightArtifactCut][]=0
+setscale x, 0, nX, ROIs_temp,image_temp // so that Geometric centre reads out pixel not microns KF 20160310
+setscale y, 0, nY, ROIs_temp,image_temp
+CenterofMass(image_temp,ROIs_temp)
+killwaves ROIs_temp//,image_temp
 
-wave GeoC
-if (nY==1) // if it is a linescan, the GeoC function doesnt work
-	make /o/n=(nRois) GeoC = 0
+wave CoM//GeoC
+if (nY==1) // if it is a linescan, the GeoC/CoM function doesnt work
+	//make /o/n=(nRois) GeoC = 0
+	make /o/n=(nRois) CoM = 0
 endif
 
 variable ff,xx,yy,rr,tt
@@ -135,9 +145,19 @@ for (ff=0;ff<nF-1;ff+=1)
 		endfor
 	endfor
 endfor
+if (SkipLastTrigger == 1)
+	make /o/n=(nTriggers-1) tempwave1 = OutputTriggerValues[p+1]
+	make /o/n=(nTriggers-1) tempwave2 = OutputTriggerTimes[p+1]	
+	OutputTriggerValues[0,nTriggers-2] = tempwave1[p]
+	OutputTriggerTimes[0,nTriggers-2] = tempwave2[p]
+	nTriggers-=1
+	killwaves tempwave1, tempwave2
+endif
+
 if (SkipLastTrigger == 1) // KF 20160310
 	nTriggers-=1
 endif
+
 print nTriggers, " Triggers found"
 if (TriggerMode>1)
 	print "Display is skipping every",TriggerMode,",Triggers as defined by the TriggerMode parameter"
@@ -173,7 +193,7 @@ for (rr=0;rr<nRois;rr+=1)
 	make /o/n=(nSeconds_prerun_reference/(nY*LineDuration)) BaselineTrace =OutputTraces_raw[p+Ignore1stXseconds/FrameDuration][rr]
 	Wavestats/Q BaselineTrace
 	OutputTraces_zscore[][rr]=(OutputTraces_raw[p][rr]-V_Avg)/V_SDev
-	OutputTraceTimes[][rr]=p*nY*LineDuration + GeoC[rr][1]*LineDuration  + StimulatorDelay/1000 // correct each ROIs timestamp by it's Y position in the scan // use y values not x values KF 20160310 // and by stimulator delay!
+	OutputTraceTimes[][rr]=p*nY*LineDuration + CoM[rr][1]*LineDuration  + StimulatorDelay/1000 // correct each ROIs timestamp by it's Y position in the scan // use y values not x values KF 20160310 // and by stimulator delay!
 endfor
 // Also extract the stimulus artifact in 2ms precision:
 make /o/n=(nY*nF) StimArtifact = NaN
