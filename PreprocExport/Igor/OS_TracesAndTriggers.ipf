@@ -96,14 +96,14 @@ imagestats/Q image_temp // need to equalise image to 0-1 for CoM function so tha
 image_temp-=V_Min
 image_temp/=V_Max-V_Min
 image_temp[0,LightArtifactCut][]=0
-setscale x, 0, nX, ROIs_temp,image_temp // so that Geometric centre reads out pixel not microns KF 20160310
-setscale y, 0, nY, ROIs_temp,image_temp
+setscale x, 0, nX, ROIs_temp, image_temp // so that CoM reads out pixel not microns KF 20160310
+setscale y, 0, nY, ROIs_temp, image_temp
+print nX, nY
 CenterofMass(image_temp,ROIs_temp)
-killwaves ROIs_temp//,image_temp
+killwaves ROIs_temp,image_temp
 
-wave CoM//GeoC
-if (nY==1) // if it is a linescan, the GeoC/CoM function doesnt work
-	//make /o/n=(nRois) GeoC = 0
+wave CoM
+if (nY==1) // if it is a linescan, the CoM function doesnt work
 	make /o/n=(nRois) CoM = 0
 endif
 

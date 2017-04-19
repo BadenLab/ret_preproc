@@ -25,6 +25,7 @@ endif
 wave OS_Parameters
 variable Channel = OS_Parameters[%Data_Channel]
 variable nSeconds_smooth = OS_Parameters[%Detrend_smooth_window]
+variable LightArtifactCut = OS_Parameters[%LightArtifact_cut]
 
 // data handling
 string input_name = "wDataCh"+Num2Str(Channel)
@@ -55,8 +56,17 @@ endfor
 Smooth/DIM=2 Smoothingfactor, InputData
 Multithread OutputData[][][]-=InputData[p][q][r]-Mean_image[p][q]
 
+// cut things
+OutputData[][][0]=OutputData[p][q][1] // copy second frame into 1st to kill frame 1 artifact
+make /o/n=(nX-LightArtifactCut,nY) tempimage = Mean_image[p+LightArtifactCut][q]
+ImageStats/Q tempimage
+OutputData[0,LightArtifactCut][][]=V_Avg // Clip Light Artifact
+Mean_image[0,LightArtifactCut][]=V_Avg
+killwaves tempimage
+
 // generate output
 duplicate /o OutputData $output_name
+duplicate /o mean_image Stack_Ave
 
 // cleanup
 killwaves CurrentTrace,InputData,OutputData,mean_image
@@ -82,6 +92,7 @@ variable Channel = OS_Parameters[%Data_Channel]
 variable Channel2 = OS_Parameters[%Data_Channel2]
 variable nSeconds_smooth = OS_Parameters[%Detrend_smooth_window]
 variable Detrend_Ratiometricdata = OS_Parameters[%Detrend_RatioMetricData]
+variable LightArtifactCut = OS_Parameters[%LightArtifact_cut]
 
 // data handling
 string input_name = "wDataCh"+Num2Str(Channel)
@@ -126,12 +137,21 @@ else
 	Multithread OutputData[][][]-=InputData[p][q][r]-Mean_image[p][q]
 	print " complete..."
 endif	
+
+// cut things
+OutputData[][][0]=OutputData[p][q][1] // copy second frame into 1st to kill frame 1 artifact
+make /o/n=(nX-LightArtifactCut,nY) tempimage = Mean_image[p+LightArtifactCut][q]
+ImageStats/Q tempimage
+OutputData[0,LightArtifactCut][][]=V_Avg // Clip Light Artifact
+Mean_image[0,LightArtifactCut][]=V_Avg
+killwaves tempimage
 	
 // generate output
 duplicate /o OutputData $output_name
+duplicate /o mean_image Stack_Ave
 
 // cleanup
-killwaves CurrentTrace,InputData,OutputData,InputData2,InputData2_frame2
+killwaves CurrentTrace,InputData,OutputData,InputData2,InputData2_frame2,Mean_image
 	
 
 	

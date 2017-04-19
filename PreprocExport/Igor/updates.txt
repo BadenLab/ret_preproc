@@ -19,10 +19,18 @@ OS GUI-added new Step 0 for linescan.Renamed RF for Kernel fornow. Need to still
 OS_LaunchCellLab -fixed the Light Artifact issue so now can see the saw data. also there is a little hack so that it allows to use non square scans
 		by now expanding the data given to it to a square.
 OS_LED_Kernel - new function added. Also uses the NoiseArray4LEDs.ipf file
+ 
+ 2017 02 27
+ 
+ OS_parametertable - added "Skip_First_trigger"
+ OS_TRaces and TRiggers - can now skip the 1st trigger
 
-updates 2017 02 06
+2017 04 19
 
-OS_GUI added Pixels to Manual ROI apply
-OS_ManualROI added new function "OS_monoPixelApply"
-OS_LED_Kernel - added new function OS_KernelMAp (ish) 
+OS_detrend now spits out a Stack_Ave and it kills the Light afrifact. It also kills the 1st frame
+OS_TriggersandTraces nbow uses Center of Mass not Geometric Center - this created a conflict with the SARFIA code for get IPL position
+ --> so the same fix is also in OS_KernelMap which is the main function that uses the IPL position
+OS_LEDNoise now plots many more maps when called, and also has a hidden OS_PlotKernels(roinumber) function
+
+ 
   

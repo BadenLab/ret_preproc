@@ -38,7 +38,7 @@ variable px_Size = (0.65/zoom * 110)/nX // microns
 print "Pixel Size:", round(px_size*100)/100," microns"
 
 // make SD average
-make /o/n=(nX,nY) Stack_SD = 0 // Avg projection of InputData
+make /o/n=(nX,nY) Stack_SD = 0 // Sd projection of InputData
 make /o/n=(nX,nY) ROIs = 1 // empty ROI wave
 make /o/n=(nF) currentwave = 0
 for (xx=X_cut;xx<nX;xx+=1)

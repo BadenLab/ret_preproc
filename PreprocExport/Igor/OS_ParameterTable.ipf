@@ -148,6 +148,10 @@ SetDimLabel 0,entry_position,Trigger_LevelRead_after_lines,OS_Parameters
 OS_Parameters[%Trigger_levelread_after_lines] = 2  // to read "Triggervalue" - want to avoid landing on the slope of the trigger - default 2
 entry_position+=1
 
+SetDimLabel 0,entry_position,Skip_First_Trigger,OS_Parameters 
+OS_Parameters[%Skip_First_Trigger] = 0  // skips last trigger, e.g. when last loop is not complete - default 0
+entry_position+=1
+
 SetDimLabel 0,entry_position,Skip_Last_Trigger,OS_Parameters // KF 20160310
 OS_Parameters[%Skip_Last_Trigger] = 0  // skips last trigger, e.g. when last loop is not complete - default 0
 entry_position+=1
@@ -237,8 +241,28 @@ SetDimLabel 0,entry_position,Kernel_SDplot,OS_Parameters
 OS_Parameters[%Kernel_SDplot] = 30 // nSDs plotted in kernel function
 entry_position+=1
 
-SetDimLabel 0,entry_position,Kernel_SDHistplot,OS_Parameters
-OS_Parameters[%Kernel_SDHistplot] = 1.5 // nSDs plotted in kernelMap histogram function
+SetDimLabel 0,entry_position,Kernel_MapPxbyPx,OS_Parameters
+OS_Parameters[%Kernel_MapPxbyPx] = 1 // Kernel map pixel by pixel (1) or bigger ROIs? (0)
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_MapSmth,OS_Parameters
+OS_Parameters[%Kernel_MapSmth] = 0 // nMicrons that kernelmaps get smoothed by
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_MapSDCut,OS_Parameters
+OS_Parameters[%Kernel_MapSDCut] = 2 // Kills ROIs below this SD in maps
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_MapRange,OS_Parameters
+OS_Parameters[%Kernel_MapRange] = 5 // SDs used in the RGBU maps
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_FFTRange,OS_Parameters
+OS_Parameters[%Kernel_FFTRange] = 3 // SDs used in the FFT maps
+entry_position+=1
+
+SetDimLabel 0,entry_position,Kernel_FFTOffset,OS_Parameters
+OS_Parameters[%Kernel_FFTOffset] = 1 // sets n Hz as darkest shade (default: 1Hz)
 entry_position+=1
 
 SetDimLabel 0,entry_position,Noise_Compression,OS_Parameters
