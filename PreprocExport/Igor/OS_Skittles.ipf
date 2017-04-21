@@ -1,6 +1,262 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 
-function OS_Skittles()
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////// SKITTLES SWEEP
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function OS_SkittlesSweep()
+
+
+variable nLEDs = 19
+make /o/n=(nLEDs) SkittlesWavelengths = {671,641,615,598,572,557,535,519,505,494,480,466,446,424,407,393,368,356,320}
+variable ReadoutTimes_s = 0.2 // i.e. 100 ms after Start and before End of step
+variable ReadoutWindow_s = 0.3 // i.e. integrate 100 ms worth of trace
+
+
+// 1 // check for Parameter Table
+if (waveexists($"OS_Parameters")==0)
+	print "Warning: OS_Parameters wave not yet generated - doing that now..."
+	OS_ParameterTable()
+	DoUpdate
+endif
+wave OS_Parameters
+// 2 //  check for Detrended Data stack
+variable Channel = OS_Parameters[%Data_Channel]
+if (waveexists($"wDataCh"+Num2Str(Channel)+"_detrended")==0)
+	print "Warning: wDataCh"+Num2Str(Channel)+"_detrended wave not yet generated - doing that now..."
+	OS_DetrendStack()
+endif
+// 3 //  check for ROI_Mask
+if (waveexists($"ROIs")==0)
+	print "Warning: ROIs wave not yet generated - doing that now (using correlation algorithm)..."
+	OS_AutoRoiByCorr()
+	DoUpdate
+endif
+// 4 //  check if Traces and Triggers are there
+if (waveexists($"Triggertimes")==0)
+	print "Warning: Traces and Trigger waves not yet generated - doing that now..."
+	OS_TracesAndTriggers()
+	DoUpdate
+endif
+// 5 //  check if Averages"N" is there
+if (waveexists($"Averages"+Num2Str(Channel))==0)
+	print "Warning: Averages wave not yet generated - doing that now..."
+	OS_BasicAveraging()
+	DoUpdate
+endif
+
+// flags from "OS_Parameters"
+variable LineDuration = OS_Parameters[%LineDuration]
+variable Display_Tunings = OS_Parameters[%Display_Stuff]
+
+// data handling
+string input_name = "Snippets"+Num2Str(Channel)
+duplicate /o $input_name InputData
+
+variable nP = DimSize(InputData,0)
+variable nFlashes = DimSize(InputData,1)
+variable nRois = DimSize(InputData,2)
+
+string output_name1 = "SweepMapMeans"+Num2Str(Channel)
+string output_name2 = "SweepMapSnippets"+Num2Str(Channel)
+string output_name3 = "SweepTuningMeans"+Num2Str(Channel)
+string output_name4 = "SweepTuningSnippets"+Num2Str(Channel)
+
+variable rr,ll,ff,cc
+
+// make new Looped Snippets arrays
+variable nCompleteLoops = floor(nFlashes/nLEDs)
+print nCompleteLoops, "complete loops of", nLEDs, "LEDs"
+
+make /o/n=(nP,nLEDs,nROIs) SweepMeans=0
+make /o/n=(nP,nLEDs,nCompleteLoops,nROIs) SweepSnippets=0
+
+setscale /p x,0,LineDuration,"s" SweepMeans,SweepSnippets
+
+variable CurrentLED = 0
+variable CurrentLoop = 0
+for (ff=0;ff<nFlashes;ff+=1)
+	SweepSnippets[][CurrentLED][CurrentLoop][]=InputData[p][ff][s]
+	SweepMeans[][CurrentLED][]+=InputData[p][ff][r]/nCompleteLoops
+	CurrentLED+=1
+	if (CurrentLED>=nLEDs)
+		CurrentLED=0
+		CurrentLoop+=1
+	endif
+endfor
+
+//Extract Tunings
+
+variable ONPeakTime_P = ReadoutTimes_s/LineDuration
+variable ONsusTime_P = nP/2 - ReadoutTimes_s/LineDuration
+variable OFFPeakTime_P = nP/2 + ReadoutTimes_s/LineDuration
+variable OFFsustime_P = nP - ReadoutTimes_s/LineDuration
+
+make /o/n=(nLEDs,4,nROIs) SweepTuning_mean = NaN
+make /o/n=(nLEDs,4,nCompleteLoops,nROIs) SweepTuning_snippets = NaN
+make /o/n=(ReadoutWindow_s/LineDuration) currentwave = 0
+
+for (rr=0;rr<nROIs;rr+=1)
+	for (ll=0;ll<nLEDs;ll+=1)
+	
+		Multithread currentwave[]=SweepMeans[p+ONPeakTime_P][ll][rr]
+		Wavestats/Q currentwave
+		SweepTuning_mean[ll][0][rr]=V_Avg
+		
+		Multithread currentwave[]=SweepMeans[-p+ONsusTime_P][ll][rr]
+		Wavestats/Q currentwave
+		SweepTuning_mean[ll][1][rr]=V_Avg
+
+		Multithread currentwave[]=SweepMeans[p+OFFPeakTime_P][ll][rr]
+		Wavestats/Q currentwave
+		SweepTuning_mean[ll][2][rr]=V_Avg
+
+		Multithread currentwave[]=SweepMeans[-p+OFFsusTime_P][ll][rr]
+		Wavestats/Q currentwave
+		SweepTuning_mean[ll][3][rr]=V_Avg
+
+		for (cc=0;cc<nCompleteLoops;cc+=1)
+
+			Multithread currentwave[]=SweepSnippets[p+ONPeakTime_P][ll][cc][rr]
+			Wavestats/Q currentwave
+			SweepTuning_Snippets[ll][0][cc][rr]=V_Avg
+			
+			Multithread currentwave[]=SweepSnippets[p+ONsusTime_P][ll][cc][rr]
+			Wavestats/Q currentwave
+			SweepTuning_Snippets[ll][1][cc][rr]=V_Avg
+			
+			Multithread currentwave[]=SweepSnippets[p+OFFPeakTime_P][ll][cc][rr]
+			Wavestats/Q currentwave
+			SweepTuning_Snippets[ll][2][cc][rr]=V_Avg
+			
+			Multithread currentwave[]=SweepSnippets[p+OFFsusTime_P][ll][cc][rr]
+			Wavestats/Q currentwave
+			SweepTuning_Snippets[ll][3][cc][rr]=V_Avg
+
+		endfor
+
+	endfor
+endfor
+
+// export handling
+duplicate /o SweepMeans $output_name1
+duplicate /o SweepSnippets $output_name2
+duplicate /o SweepTuning_mean $output_name3
+duplicate /o SweepTuning_snippets $output_name4
+
+// display
+
+if (display_tunings==1)
+
+	display /k=1
+	make /o/n=(1) M_Colors
+	Colortab2Wave Rainbow256
+	
+	for (rr=0;rr<nRois;rr+=1)
+		string YAxisName = "YAxis_Roi"+Num2Str(rr)
+		string tracename
+		for (ll=0;ll<nCompleteLoops;ll+=1)
+			tracename = output_name4+"#"+Num2Str((rr*nCompleteLoops+ll)*4)
+			if (ll==0 && rr==0)
+				tracename = output_name4
+			endif
+			Appendtograph /l=$YAxisName /b=XOnTr $output_name4[][0][ll][rr] vs SkittlesWavelengths // ON transient
+			ModifyGraph rgb($tracename)=(52224,52224,52224)
+			
+			tracename = output_name4+"#"+Num2Str((rr*nCompleteLoops+ll)*4+1)	
+			Appendtograph /l=$YAxisName /b=XONsus $output_name4[][1][ll][rr] vs SkittlesWavelengths // ON sustained
+			ModifyGraph rgb($tracename)=(52224,52224,52224)
+			
+			tracename = output_name4+"#"+Num2Str((rr*nCompleteLoops+ll)*4+2)	
+			Appendtograph /l=$YAxisName /b=XOffTr $output_name4[][2][ll][rr] vs SkittlesWavelengths // OFF transient
+			ModifyGraph rgb($tracename)=(52224,52224,52224)
+			
+			tracename = output_name4+"#"+Num2Str((rr*nCompleteLoops+ll)*4+3)	
+			Appendtograph /l=$YAxisName /b=XOffSus $output_name4[][3][ll][rr] vs SkittlesWavelengths // OFF sustained
+			ModifyGraph rgb($tracename)=(52224,52224,52224)
+			
+		endfor	
+		
+		tracename = output_name3+"#"+Num2Str(rr*4)
+		if (rr==0)
+			tracename = output_name3
+		endif
+		Appendtograph /l=$YAxisName /b=XOnTr $output_name3[][0][rr] vs SkittlesWavelengths // ON tr Means
+		variable colorposition = 255 * (rr+1)/nRois
+		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
+		ModifyGraph lsize($tracename)=1.5
+		
+		tracename = output_name3+"#"+Num2Str(rr*4+1)
+		Appendtograph /l=$YAxisName /b=XOnSus $output_name3[][1][rr] vs SkittlesWavelengths // ON sus Means
+		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
+		ModifyGraph lsize($tracename)=1.5
+
+		tracename = output_name3+"#"+Num2Str(rr*4+2)		
+		Appendtograph /l=$YAxisName /b=XOfftr $output_name3[][2][rr] vs SkittlesWavelengths // OFF tr Means
+		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
+		ModifyGraph lsize($tracename)=1.5
+		
+		tracename = output_name3+"#"+Num2Str(rr*4+3)
+		Appendtograph /l=$YAxisName /b=XOffSus $output_name3[][3][rr] vs SkittlesWavelengths // OFF sus Means
+		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
+		ModifyGraph lsize($tracename)=1.5
+		
+		variable plotfrom = (1-((rr+1)/nRois))*0.85+0.05
+		variable plotto = (1-(rr/nRois))*0.85+0.05
+		
+		ModifyGraph fSize($YAxisName)=8,axisEnab($YAxisName)={plotfrom,plotto};DelayUpdate
+		ModifyGraph freePos($YAxisName)={0,kwFraction};DelayUpdate
+		Label $YAxisName "\\Z10"+Num2Str(rr)
+		ModifyGraph noLabel($YAxisName)=1,axThick($YAxisName)=0;DelayUpdate
+		ModifyGraph lblRot($YAxisName)=-90
+	endfor
+	
+	ModifyGraph fSize=8,lblPos(XOnTr)=47,axisEnab(XOnTr)={0.05,0.25};DelayUpdate
+	ModifyGraph freePos(XOnTr)={0,kwFraction}
+	Label XOnTr "\\Z10Wavelength (nm)"
+	SetAxis XOnTr 300,700
+
+	ModifyGraph fSize=8,lblPos(XOnSus)=47,axisEnab(XOnSus)={0.3,0.5};DelayUpdate
+	ModifyGraph freePos(XOnSus)={0,kwFraction}
+	Label XOnSus "\\Z10Wavelength (nm)"
+	SetAxis XOnSus 300,700
+	
+	ModifyGraph fSize=8,lblPos(XOffTr)=47,axisEnab(XOffTr)={0.55,0.75};DelayUpdate
+	ModifyGraph freePos(XOffTr)={0,kwFraction}
+	Label XOffTr "\\Z10Wavelength (nm)"
+	SetAxis XOffTr 300,700
+	
+	ModifyGraph fSize=8,lblPos(XOffSus)=47,axisEnab(XOffSus)={0.8,1};DelayUpdate
+	ModifyGraph freePos(XOffSus)={0,kwFraction}
+	Label XOffSus "\\Z10Wavelength (nm)"
+	SetAxis XOffSus 300,700
+
+	•ShowTools/A arrow
+	•SetDrawEnv xcoord= XOnTr,fstyle= 1, fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"ON transient"
+	•SetDrawEnv xcoord= XOffTr,fstyle= 1,  fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"OFF transient"
+	•SetDrawEnv xcoord= XOnSus,fstyle= 1, fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"ON sustained"
+	•SetDrawEnv xcoord= XOffSus,fstyle= 1,  fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"OFF sustained"
+	HideTools/A
+	
+
+endif
+
+
+// cleanup
+killwaves InputData, currentwave
+
+
+end
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////// NOISE
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function OS_SkittlesNoise()
 
 // 1 // check for Parameter Table
 if (waveexists($"SkittlesNoise")==0)
