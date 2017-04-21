@@ -7,17 +7,13 @@ variable display_stuff
 
 variable AnimalAngle_deg = 0
 variable EyeLeftRight = -1 // left eye 1, right eye -1
-variable Origin_SutterAbsX = 4182.3+90
-variable Origin_SutterAbsY = -276.92+15
-variable Origin_SutterAbsZ =  -42702
+wave wParamsNum
+// change the "+0" bit if the sutter was moved relative to eye origin
+variable Origin_SutterAbsX =  wParamsNum[FindDimLabel(wParamsNum,0,"XCoord_um")] +0
+variable Origin_SutterAbsY =  wParamsNum[FindDimLabel(wParamsNum,0,"YCoord_um")] + 0
+variable Origin_SutterAbsZ =  wParamsNum[FindDimLabel(wParamsNum,0,"ZCoord_um")] + 0
 
-//variable AnimalAngle_deg = 45//45 // degree
-//variable EyeLeftRight = -1 // left eye 1, right eye -1
-//variable Origin_SutterAbsX = 1601.8 -15 // position of sutter & light stimulus
-//variable Origin_SutterAbsY = 2541.3 -40 // position of sutter & light stimulus
-//variable Origin_SutterAbsZ = -99341 // position of sutter & light stimulus
-
-variable display_3D = 0
+variable display_3D = 1
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// ROTATION AND POSITION NOTES, BASED ON SETUP 1
@@ -35,10 +31,9 @@ variable VtoDistanceFactor = 82 // 82 microns per Volt under x20 Objective
 variable IPL_to_micron_scale = 30 // how thick is the IPL
 variable AnimalAngle = AnimalAngle_deg / 360  * pi 
 
-wave wParamsNum
 wave positions
 wave ROIs
-wave GeoC
+wave CoM
 
 variable Scan_SutterAbsX =  wParamsNum[FindDimLabel(wParamsNum,0,"XCoord_um")]
 variable Scan_SutterAbsY =  wParamsNum[FindDimLabel(wParamsNum,0,"YCoord_um")]
@@ -102,8 +97,8 @@ variable Scan_Z = Scan_SutterAbsZ - Origin_SutterAbsZ  // Z lens not implemented
 variable rr
 for (rr=0;rr<nRois;rr+=1)
 
-	variable ROIinScan_X = ((nX/2 - GeoC[rr][0] ) * px_to_microns ) *-1 // X inverted
-	variable ROIinScan_Y = ((nLines/2 - GeoC[rr][1] ) * px_to_microns) * -1 // Y inverted as ScanM plots them upside down
+	variable ROIinScan_X = ((nX/2 - CoM[rr][0] ) * px_to_microns ) *-1 // X inverted
+	variable ROIinScan_Y = ((nLines/2 - CoM[rr][1] ) * px_to_microns) * -1 // Y inverted as ScanM plots them upside down
 	
 	variable ROIinScan_X_rotated = (ROIinScan_X) * cos(ScanAngle) - (ROIinScan_Y) * sin(ScanAngle)
 	variable ROIinScan_Y_rotated = (ROIinScan_X) * sin(ScanAngle) + (ROIinScan_Y) * cos(ScanAngle)

@@ -32,5 +32,11 @@ OS_TriggersandTraces nbow uses Center of Mass not Geometric Center - this create
  --> so the same fix is also in OS_KernelMap which is the main function that uses the IPL position
 OS_LEDNoise now plots many more maps when called, and also has a hidden OS_PlotKernels(roinumber) function
 
+2017 04 21
+OS_LEDNoise killed a redundant read from the table (KernelSD Hist thingy)
+OS_TracesandATriggers now reads the light artifact from the original data not the detrended one
+Added OS_Skittles which can do Skittles kernels
+OS_3D thing now reads CoM and auto-reads Sutter coordinates
+
  
   

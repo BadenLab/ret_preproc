@@ -59,6 +59,7 @@ variable LightArtifactCut = OS_Parameters[%LightArtifact_cut]
 wave wParamsNum // Reads data-header
 string input_name1 = "wDataCh"+Num2Str(DataChannel)+"_detrended"
 string input_name2 = "wDataCh"+Num2Str(TriggerChannel)
+string input_name3 = "wDataCh"+Num2Str(DataChannel)
 string output_name1 = "Traces"+Num2Str(DataChannel)+"_raw"
 string output_name2 = "Traces"+Num2Str(DataChannel)+"_znorm"
 string output_name3 = "Tracetimes"+Num2Str(DataChannel)
@@ -68,6 +69,7 @@ string output_name6 = "Triggertimes_Frame"
 
 duplicate /o $input_name1 InputData
 duplicate /o $input_name2 InputTriggers
+duplicate /o $input_name3 RawInputData
 
 // inverting trigger channel
 InputTriggers*=-1
@@ -98,7 +100,6 @@ image_temp/=V_Max-V_Min
 image_temp[0,LightArtifactCut][]=0
 setscale x, 0, nX, ROIs_temp, image_temp // so that CoM reads out pixel not microns KF 20160310
 setscale y, 0, nY, ROIs_temp, image_temp
-print nX, nY
 CenterofMass(image_temp,ROIs_temp)
 killwaves ROIs_temp,image_temp
 
@@ -200,7 +201,7 @@ make /o/n=(nY*nF) StimArtifact = NaN
 setscale /p x,0,LineDuration,"s" StimArtifact
 for (ff=0;ff<nF;ff+=1)
 	for (yy=0;yy<nY;yy+=1)
-		StimArtifact[ff*nY+yy]=InputData[0][yy][ff]
+		StimArtifact[ff*nY+yy]=RawInputData[0][yy][ff]
 	endfor
 endfor
 Wavestats/Q StimArtifact
@@ -270,6 +271,6 @@ if (Display_traces==1)
 endif
 
 // cleanup
-killwaves InputData, InputTriggers, OutputTraces_raw,OutputTraces_zscore,OutputTraceTimes,OutputTriggerTimes,BaselineTrace,M_Colors, OutputTriggerValues, OutputTriggerTimes_Frame
+killwaves InputData, RawinputData InputTriggers, OutputTraces_raw,OutputTraces_zscore,OutputTraceTimes,OutputTriggerTimes,BaselineTrace,M_Colors, OutputTriggerValues, OutputTriggerTimes_Frame
 
 end

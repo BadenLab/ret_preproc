@@ -81,7 +81,7 @@ endfor
 ///////////// Bring stimulus to 500 Hz timebase             /////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // generating output arrays
-make /o/n=(nP_data_upsampled,4) Stim_upsampled = 0
+make /o/n=(nP_data_upsampled,nLEDs) Stim_upsampled = 0
 setscale /p x,0,LineDuration,"s" Stim_upsampled
 // upsampling stimulus array 
 print "upsampling Stimulus..."
@@ -249,7 +249,6 @@ endif
 variable Display_IPL = OS_Parameters[%Display_Stuff]
 variable LineDuration = OS_Parameters[%LineDuration]
 variable nSeconds_kernel = OS_Parameters[%Noise_FilterLength_s] // nSD over baseline in time differential //read from OS_Parameters
-variable YRange = OS_Parameters[%Kernel_SDHistPlot]
 variable Kernel_PixelWiseMap = OS_Parameters[%Kernel_MapPxbyPx] // 0 or 1
 variable Kernel_MapSmth_um = OS_Parameters[%Kernel_MapSmth] // in microns
 variable Kernel_MapRange = OS_Parameters[%Kernel_MapRange]
