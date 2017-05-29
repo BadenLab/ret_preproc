@@ -211,6 +211,18 @@ for (ff=0;ff<nScanFolders;ff+=1)
 	ItemAddress = DF_Scan_Full+"KernelList_SD"	// For example here we are taking the array "kernelList_SD" and copying it over into root:scans"
 	ItemTargetName = "KernelList_SD"+Num2Str(ff)	
 	duplicate /o $ItemAddress $ItemTargetName
+	
+	ItemAddress = DF_Scan_Full+"KernelList_FFT"	// FFT
+	ItemTargetName = "KernelList_FFT"+Num2Str(ff)	
+	duplicate /o $ItemAddress $ItemTargetName
+	
+	ItemAddress = DF_Scan_Full+"KernelList_BiPhasic"	// BiPhasic
+	ItemTargetName = "KernelList_BiPhasic"+Num2Str(ff)	
+	duplicate /o $ItemAddress $ItemTargetName
+	
+	ItemAddress = DF_Scan_Full+"Kernels_all"	// RawKernels
+	ItemTargetName = "Kernels_all"+Num2Str(ff)	
+	duplicate /o $ItemAddress $ItemTargetName
 
 	// count ROIs
 	ROIs_per_scan[ff]=Dimsize($ItemTargetName,0)
@@ -218,6 +230,7 @@ for (ff=0;ff<nScanFolders;ff+=1)
 endfor
 Wavestats/Q ROIs_per_scan
 variable nROIs = V_Sum
+variable nPoints_Kernel = 649 // hard coded kernel duration
 print "nScans: ", nScanfolders
 print "nROIs: ", nROIs
 
@@ -226,6 +239,10 @@ print "nROIs: ", nROIs
 make /o/n=(nROIs,3) Positions_3D_xyz = NaN
 make /o/n=(nROIs,3) Positions_2D = NaN
 make /o/n=(nROIs,4) KernelList_SD = NaN // declare the array that you picked above
+make /o/n=(nROIs,4) KernelList_FFT = NaN // declare the array that you picked above
+make /o/n=(nROIs,4) KernelList_BiPhasic = NaN // declare the array that you picked above
+make /o/n=(nPoints_Kernel,4,nROIs) Kernels_all = NaN // declare the array that you picked above
+
 for (ff=0;ff<nScanFolders;ff+=1)
 	ItemTargetName = "Positions_3D_xyz"+Num2Str(ff)	
 	duplicate /o $ItemTargetName Currentwave
@@ -241,7 +258,21 @@ for (ff=0;ff<nScanFolders;ff+=1)
 	duplicate /o $ItemTargetName Currentwave
 	killwaves $ItemTargetName
 	KernelList_SD[ROIs_per_scan_cumul[ff],ROIs_per_scan_cumul[ff+1]-1][]=Currentwave[p-ROIs_per_scan_cumul[ff]][q]
+	
+	ItemTargetName = "KernelList_FFT"+Num2Str(ff)	// fill array
+	duplicate /o $ItemTargetName Currentwave
+	killwaves $ItemTargetName
+	KernelList_FFT[ROIs_per_scan_cumul[ff],ROIs_per_scan_cumul[ff+1]-1][]=Currentwave[p-ROIs_per_scan_cumul[ff]][q]
 
+	ItemTargetName = "KernelList_BiPhasic"+Num2Str(ff)	// fill array
+	duplicate /o $ItemTargetName Currentwave
+	killwaves $ItemTargetName
+	KernelList_BiPhasic[ROIs_per_scan_cumul[ff],ROIs_per_scan_cumul[ff+1]-1][]=Currentwave[p-ROIs_per_scan_cumul[ff]][q]
+	
+	ItemTargetName = "Kernels_all"+Num2Str(ff)	// fill array
+	duplicate /o $ItemTargetName Currentwave
+	killwaves $ItemTargetName
+	Kernels_all[][][ROIs_per_scan_cumul[ff],ROIs_per_scan_cumul[ff+1]-1]=Currentwave[p][q][r-ROIs_per_scan_cumul[ff]]
 endfor
 
 // display
@@ -298,7 +329,7 @@ variable display_stuff
 variable layers_or_IPLdepth = 1 // layers = 0, depth = 1
 
 variable SD_threshold = 2 // consider only kernels above this SD
-variable nBins_angle = 8 // 360 deg divided into how many sectors?
+variable nBins_angle = 12 // 360 deg divided into how many sectors?
 variable nBins_depth = 25 // 100% IPL depth divdied into how many positions
 variable AngleSmooth = 30 // in degrees
 variable DepthSmooth =5 // in % IPL
@@ -549,8 +580,9 @@ if (display_stuff==1)
 	
 	endfor
 	
-	•ModifyGraph mode=8,marker=16;DelayUpdate
-	•ModifyGraph msize=2
+	•ModifyGraph mode=0,marker=16;DelayUpdate
+	•ModifyGraph msize=1.5
+	ModifyGraph lsize=1.5
 	
 	for (bb=0;bb<nBins_angle;bb+=1)
 		Tracename = "IPLPLotwave#"+Num2Str(bb)
