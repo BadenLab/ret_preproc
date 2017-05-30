@@ -200,6 +200,10 @@ for (ff=0;ff<nScanFolders;ff+=1)
 	String DF_Scan_Full = "root:Scans:'"+'DF_Scan'+"':"
 	
 	// grab all interesting arrays
+	ItemAddress = DF_Scan_Full+"Kernels_all"	// RawKernels
+	ItemTargetName = "Kernels_all"+Num2Str(ff)	
+	duplicate /o $ItemAddress $ItemTargetName
+
 	ItemAddress = DF_Scan_Full+"Positions_3D_xyz"	
 	ItemTargetName = "Positions_3D_xyz"+Num2Str(ff)	
 	duplicate /o $ItemAddress $ItemTargetName
@@ -220,10 +224,6 @@ for (ff=0;ff<nScanFolders;ff+=1)
 	ItemTargetName = "KernelList_BiPhasic"+Num2Str(ff)	
 	duplicate /o $ItemAddress $ItemTargetName
 	
-	ItemAddress = DF_Scan_Full+"Kernels_all"	// RawKernels
-	ItemTargetName = "Kernels_all"+Num2Str(ff)	
-	duplicate /o $ItemAddress $ItemTargetName
-
 	// count ROIs
 	ROIs_per_scan[ff]=Dimsize($ItemTargetName,0)
 	ROIs_per_scan_cumul[ff+1,nScanFolders]+=ROIs_per_scan[ff]
