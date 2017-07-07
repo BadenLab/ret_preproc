@@ -186,14 +186,6 @@ SetDimLabel 0,entry_position,AverageStack_make,OS_Parameters
 OS_Parameters[%AverageStack_make] = 0 // yes or no /0/1 - default 0
 entry_position+=1
 
-SetDimLabel 0,entry_position,AverageStack_rate,OS_Parameters
-OS_Parameters[%AverageStack_rate] = 50 // Time resolution of the Average stack, in Hz - the faster the longer it calculates
-entry_position+=1
-
-SetDimLabel 0,entry_position,AverageStack_dF,OS_Parameters
-OS_Parameters[%AverageStack_dF] = 1 // Subtract Average
-entry_position+=1
-
 /// QuickCluster  /////////////////////////////////////////////////////////////////////////
 
 SetDimLabel 0,entry_position,Clustering_nClasses,OS_Parameters

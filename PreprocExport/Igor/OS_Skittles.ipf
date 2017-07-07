@@ -253,6 +253,129 @@ killwaves InputData, currentwave
 end
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////// OPSIN PLOTTER
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function OS_SkittlesSweep_Plot(rr)
+variable rr
+
+wave SweepTuningMeans0
+wave SweepTuningSnippets0
+wave SkittlesWavelengths
+wave zf_opsins
+variable ll
+variable nCompleteLoops = Dimsize(SweepTuningSnippets0,2)
+
+display /k=1
+	
+string YAxisName = "YAxis"
+string tracename
+	for (ll=0;ll<nCompleteLoops;ll+=1)
+		tracename = "SweepTuningSnippets0#"+Num2Str((ll)*4)
+		if (ll==0 && rr==0)
+			tracename = "SweepTuningSnippets0"
+		endif
+		Appendtograph /l=$YAxisName /b=XOnTr SweepTuningSnippets0[][0][ll][rr] vs SkittlesWavelengths // ON transient
+		ModifyGraph rgb($tracename)=(52224,52224,52224)
+		
+		tracename = "SweepTuningSnippets0#"+Num2Str((ll)*4+1)	
+		Appendtograph /l=$YAxisName /b=XONsus SweepTuningSnippets0[][1][ll][rr] vs SkittlesWavelengths // ON sustained
+		ModifyGraph rgb($tracename)=(52224,52224,52224)
+		
+		tracename = "SweepTuningSnippets0#"+Num2Str((ll)*4+2)	
+		Appendtograph /l=$YAxisName /b=XOffTr SweepTuningSnippets0[][2][ll][rr] vs SkittlesWavelengths // OFF transient
+		ModifyGraph rgb($tracename)=(52224,52224,52224)
+		
+		tracename = "SweepTuningSnippets0#"+Num2Str((ll)*4+3)	
+		Appendtograph /l=$YAxisName /b=XOffSus SweepTuningSnippets0[][3][ll][rr] vs SkittlesWavelengths // OFF sustained
+		ModifyGraph rgb($tracename)=(52224,52224,52224)
+		
+	endfor	
+		
+
+	tracename = "SweepTuningMeans0"
+	Appendtograph /l=$YAxisName /b=XOnTr SweepTuningMeans0[][0][rr] vs SkittlesWavelengths // ON tr Means
+	ModifyGraph rgb($tracename)=(0,0,0)
+	ModifyGraph lsize($tracename)=1.5
+	
+	tracename = "SweepTuningMeans0#"+Num2Str(1)
+	Appendtograph /l=$YAxisName /b=XOnSus SweepTuningMeans0[][1][rr] vs SkittlesWavelengths // ON sus Means
+	ModifyGraph rgb($tracename)=(0,0,0)
+	ModifyGraph lsize($tracename)=1.5
+
+	tracename = "SweepTuningMeans0#"+Num2Str(2)		
+	Appendtograph /l=$YAxisName /b=XOfftr SweepTuningMeans0[][2][rr] vs SkittlesWavelengths // OFF tr Means
+	ModifyGraph rgb($tracename)=(0,0,0)
+	ModifyGraph lsize($tracename)=1.5
+	
+	tracename = "SweepTuningMeans0#"+Num2Str(3)
+	Appendtograph /l=$YAxisName /b=XOffSus SweepTuningMeans0[][3][rr] vs SkittlesWavelengths // OFF sus Means
+	ModifyGraph rgb($tracename)=(0,0,0)
+	ModifyGraph lsize($tracename)=1.5
+		
+	variable plotfrom = 0.15
+	variable plotto = 1
+		
+	ModifyGraph fSize($YAxisName)=8,axisEnab($YAxisName)={plotfrom,plotto};DelayUpdate
+	ModifyGraph freePos($YAxisName)={0,kwFraction};DelayUpdate
+	Label $YAxisName "\\Z10"+Num2Str(rr)
+	ModifyGraph noLabel($YAxisName)=1,axThick($YAxisName)=0;DelayUpdate
+	ModifyGraph lblRot($YAxisName)=-90
+
+///
+	
+	ModifyGraph fSize=8,lblPos(XOnTr)=47,axisEnab(XOnTr)={0.05,0.25};DelayUpdate
+	ModifyGraph freePos(XOnTr)={0,kwFraction}
+	Label XOnTr "\\Z10Wavelength (nm)"
+	SetAxis XOnTr 300,700
+
+	ModifyGraph fSize=8,lblPos(XOnSus)=47,axisEnab(XOnSus)={0.3,0.5};DelayUpdate
+	ModifyGraph freePos(XOnSus)={0,kwFraction}
+	Label XOnSus "\\Z10Wavelength (nm)"
+	SetAxis XOnSus 300,700
+	
+	ModifyGraph fSize=8,lblPos(XOffTr)=47,axisEnab(XOffTr)={0.55,0.75};DelayUpdate
+	ModifyGraph freePos(XOffTr)={0,kwFraction}
+	Label XOffTr "\\Z10Wavelength (nm)"
+	SetAxis XOffTr 300,700
+	
+	ModifyGraph fSize=8,lblPos(XOffSus)=47,axisEnab(XOffSus)={0.8,1};DelayUpdate
+	ModifyGraph freePos(XOffSus)={0,kwFraction}
+	Label XOffSus "\\Z10Wavelength (nm)"
+	SetAxis XOffSus 300,700
+
+	•ShowTools/A arrow
+	•SetDrawEnv xcoord= XOnTr,fstyle= 1, fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"ON transient"
+	•SetDrawEnv xcoord= XOffTr,fstyle= 1,  fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"OFF transient"
+	•SetDrawEnv xcoord= XOnSus,fstyle= 1, fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"ON sustained"
+	•SetDrawEnv xcoord= XOffSus,fstyle= 1,  fsize= 10;DelayUpdate
+	•DrawText 360,0.025,"OFF sustained"
+	HideTools/A
+	
+	//
+	
+	•Appendtograph /l=OpsinsY /b=XOnTr zf_opsins[][0],zf_opsins[][1],zf_opsins[][2],zf_opsins[][3]
+	•Appendtograph /l=OpsinsY /b=XOnSus zf_opsins[][0],zf_opsins[][1],zf_opsins[][2],zf_opsins[][3]
+	•Appendtograph /l=OpsinsY /b=XOffTr zf_opsins[][0],zf_opsins[][1],zf_opsins[][2],zf_opsins[][3]
+	•Appendtograph /l=OpsinsY /b=XOffSus zf_opsins[][0],zf_opsins[][1],zf_opsins[][2],zf_opsins[][3]	
+	
+	•ModifyGraph fSize=8,noLabel(OpsinsY)=2,axThick(OpsinsY)=0;DelayUpdate
+	•ModifyGraph axisEnab(OpsinsY)={0.05,0.3},freePos(OpsinsY)={0,kwFraction}
+	
+	•ModifyGraph rgb(zf_opsins)=(29440,0,58880),rgb(zf_opsins#1)=(0,0,65280);DelayUpdate
+•ModifyGraph rgb(zf_opsins#2)=(0,52224,26368),rgb(zf_opsins#4)=(29440,0,58880);DelayUpdate
+•ModifyGraph rgb(zf_opsins#5)=(0,0,65280),rgb(zf_opsins#6)=(0,52224,26368);DelayUpdate
+•ModifyGraph rgb(zf_opsins#8)=(29440,0,58880),rgb(zf_opsins#9)=(0,0,65280);DelayUpdate
+•ModifyGraph rgb(zf_opsins#10)=(0,52224,26368),rgb(zf_opsins#12)=(29440,0,58880);DelayUpdate
+•ModifyGraph rgb(zf_opsins#13)=(0,0,65280),rgb(zf_opsins#14)=(0,52224,26368)
+	
+end
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// NOISE
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -36,8 +36,6 @@ variable Triggermode = OS_Parameters[%Trigger_Mode]
 variable Ignore1stXseconds = OS_Parameters[%Ignore1stXseconds]
 variable IgnoreLastXseconds = OS_Parameters[%IgnoreLastXseconds]
 variable AverageStack_make = OS_Parameters[%AverageStack_make]
-variable AverageStack_rate = OS_Parameters[%AverageStack_rate]
-variable AverageStack_dF = OS_Parameters[%AverageStack_dF]
 variable X_cut = OS_Parameters[%LightArtifact_cut]
 
 // data handling
@@ -172,35 +170,20 @@ for (rr=0;rr<nRois;rr+=1)
 	QualityCriterion[rr]= variance_of_mean / Mean_of_variance
 endfor
 
-// Make Average Stack (optional)
+// make average stack (optional) - frame precision
 
 if (AverageStack_make==1)
 	print "Generating AverageStack"
 	make /o/n=(nX-X_Cut,nY) OutputStack_avg = 0
-	variable stack_downsample = AverageStack_rate / (1/LineDuration)
-	make /o/n=(nX-X_cut,nY,nPoints*stack_downsample) OutputStackUpsampled = 0 // in line precision - deafult 500 Hz
-	for (xx=0;xx<nX-X_Cut;xx+=1) // make Upsampled raw stack
-		for (yy=0;yy<nY;yy+=1)
-			make /o/n=(nF) CurrentTrace = InputStack[xx+X_Cut][yy][p]
-			WaveStats/Q CurrentTrace
-			OutputStack_avg[xx][yy]=V_avg
-			setscale x,InputTraceTimes[0][0],InputTraceTimes[nF-1][0],"s" CurrentTrace // uses trace timestamps from ROI 0
-			Resample/RATE=(AverageStack_rate) CurrentTrace
-			Multithread OutputStackUpsampled[xx][yy][0,nPoints*stack_downsample-4*nY] = CurrentTrace[r] // ignores last 4 frames of original recording to avoid Array overrun
-		endfor
-	endfor
-	make /o/n=(nX-X_Cut,nY,(SnippetDuration * 1/LineDuration) * stack_downsample) OutputStack = 0
+	make /o/n=(nX-X_Cut,nY,SnippetDuration/FrameDuration) OutputStack = 0 // at framerate
 	for (ll=0;ll<nLoops;ll+=1)	// aveage across loops
+		variable CurrentTriggerFrame = (Triggertimes[ll*TriggerMode+Ignore1stXTriggers])/FrameDuration
 		for (xx=0;xx<nX-X_Cut;xx+=1)
 			for (yy=0;yy<nY;yy+=1)
-				Multithread OutputStack[xx][yy][]+=OutputStackUpsampled[xx][yy][r+Triggertimes[ll*TriggerMode+Ignore1stXTriggers]/(LineDuration/stack_downsample)]/nLoops
+				Multithread OutputStack[xx][yy][]+=InputStack[xx+X_Cut][yy][r+CurrentTriggerFrame]
 			endfor
 		endfor
 	endfor
-	
-	if (AverageStack_dF==1)
-		OutputStack[][][]-=OutputStack_avg[p][q]
-	endif
 	
 	duplicate /o OutputStack $output_name3
 
@@ -260,7 +243,8 @@ endif
 
 
 // cleanup
-killwaves InputTraces, InputTraceTimes,CurrentTrace,OutputTracesUpsampled,OutputTraceSnippets,OutputTraceAverages,OutputStack,OutputStackUpsampled,OutputStack_avg
+killwaves InputTraces, InputTraceTimes,CurrentTrace,OutputTracesUpsampled,OutputTraceSnippets,OutputTraceAverages,OutputStack,OutputStack_avg
 killwaves OutputStimArtiAverage, currentwave, currentwave2
+//killwaves OutputStackUpsampled
 
 end
