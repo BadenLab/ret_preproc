@@ -6,7 +6,7 @@ function OS_ParameterTable()
 if (waveexists($"OS_Parameters")==1)
 	print "OS_Parameters table already exists - just opening that..."
 else
-	print "Genertating new OS_Parameters table..."
+	print "Generating new OS_Parameters table..."
 
 // make a new table
 make /o/n=100 OS_Parameters = NaN
@@ -108,6 +108,16 @@ SetDimLabel 0,entry_position,Detrend_RatiometricData,OS_Parameters
 OS_Parameters[%Detrend_RatiometricData] = 0 // Does Ratiometric data get detrended (1) or just combined (0)? - default 0
 entry_position+=1
 
+SetDimLabel 0,entry_position,Detrend_Skip,OS_Parameters
+OS_Parameters[%Detrend_Skip] = 0 // 1 skips the detrend
+entry_position+=1
+
+/// MULTIPLANE ////////////////////////////////////////////////////////////////////////////////////////////////
+
+SetDimLabel 0,entry_position,nPlanes,OS_Parameters
+OS_Parameters[%nPlanes] = 1 // number of scan planes to be deinterleaved
+entry_position+=1
+
 /// ROI PLACEMENT /////////////////////////////////////////////////////////////////////////////////////
 
 SetDimLabel 0,entry_position,ROI_corr_min,OS_Parameters
@@ -148,12 +158,12 @@ SetDimLabel 0,entry_position,Trigger_LevelRead_after_lines,OS_Parameters
 OS_Parameters[%Trigger_levelread_after_lines] = 2  // to read "Triggervalue" - want to avoid landing on the slope of the trigger - default 2
 entry_position+=1
 
-SetDimLabel 0,entry_position,Skip_First_Trigger,OS_Parameters 
-OS_Parameters[%Skip_First_Trigger] = 0  // skips last trigger, e.g. when last loop is not complete - default 0
+SetDimLabel 0,entry_position,Skip_First_Triggers,OS_Parameters 
+OS_Parameters[%Skip_First_Triggers] = 0  // skips last trigger, e.g. when last loop is not complete - default 0
 entry_position+=1
 
-SetDimLabel 0,entry_position,Skip_Last_Trigger,OS_Parameters // KF 20160310
-OS_Parameters[%Skip_Last_Trigger] = 0  // skips last trigger, e.g. when last loop is not complete - default 0
+SetDimLabel 0,entry_position,Skip_Last_Triggers,OS_Parameters // KF 20160310
+OS_Parameters[%Skip_Last_Triggers] = 0  // skips last trigger, e.g. when last loop is not complete - default 0
 entry_position+=1
 
 SetDimLabel 0,entry_position,Trigger_DisplayHeight,OS_Parameters
@@ -261,6 +271,10 @@ SetDimLabel 0,entry_position,Noise_Compression,OS_Parameters
 OS_Parameters[%Noise_Compression] = 10 // Noise RF calculation speed up
 entry_position+=1
 
+SetDimLabel 0,entry_position,ROIKernelSmooth_space,OS_Parameters
+OS_Parameters[%ROIKernelSmooth_space] = 1 // ROIKernel Smoothing (pixels)
+entry_position+=1
+
 /// redimension the OS_parameter table, so it doesn't have trailing NaN's
 redimension /N=(entry_position) OS_Parameters
 
@@ -269,4 +283,18 @@ endif
 // Display the Table
 edit /k=1 /W=(50,50,300,700)OS_Parameters.l, OS_Parameters
 
+end
+
+//////////////////////////
+
+function OS_ParameterTable_kill()
+
+// 1 // check for Parameter Table
+if (waveexists($"OS_Parameters")==1)
+	wave OS_parameters
+	killwaves OS_parameters	
+	print "OS_Parameters deleted"
+else
+	print "OS_Parameters was already deleted"
+endif
 end

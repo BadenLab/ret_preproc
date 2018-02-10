@@ -39,4 +39,39 @@ Added OS_Skittles which can do Skittles kernels
 OS_3D thing now reads CoM and auto-reads Sutter coordinates
 
  
+OS update 2018 02 10
+
+// GUI a bit reformatted
+
+// Added Parameter Table Kill button. That deletes the OS_Parameters wave. Only works if the window is closed for now
+
+// Detrend renamed Preformatting (as does more than just detrend)
+// Detrend itself can be switched off in Parameters under Detrend_Skip @Takeshi
+
+// Implemented multiplane switch ("nPlanes" in Parameter table, default 1) @Fil, @Phil.
+	 Triggers when Preformatting (former detrend button)
+
+// Trace and Triggers now accepts the "Skip_First_Triggers" and "Skip_Last_Triggers" arguments @Phil. 
+	Enter the number of triggers to be skipped. Default 0. 
+	To execute, need to rerun Trace and Triggers if changed
+	
+// Added ROI-K button (@Mingyi). That's fro ROI-Kernel. It takes the z-norm trace from ROI0 (put only 1 ROI for this)
+	and backtriggers the entire datastack against it. It shares some arguments from Parameter table with
+	the Kernel function: 
+	- Noise_FilterLength is used as half the length in the ROI Kernel
+	- Noise_EventSD is used exactly as is also in ROI Kernel
+	In addition, there is a smooth argument which makes the Roi Kernels prettier:
+	- ROIKernelSmooth, default = 1 (set to 0 to remove, higher to smooth more)
+	
+// Added Sweep Button (Skittles only, @Phil)
+	This decodes the Sweep from Skittles Data. Make sure to set Triggermode to 1 (not 19) for this, 
+	still skip the 1st trigger, get the Averages (which will look silly) and the press Sweep to get the tuning.
+
+// Added Swoosh Button (Skittles only, @Phil)
+	This is the Swooshmap as Phil had already, except that now the swoosh positions are already in the script
+	so no need to load extra. TBC
+	
+	
+
+	
   

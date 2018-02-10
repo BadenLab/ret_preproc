@@ -14,6 +14,9 @@
 #include "OS_LineScanFormat"
 #include "OS_LED_Noise"
 #include "OS_Clustering"
+#include "OS_Skittles"
+#include "OS_KernelfromROI" 
+#include "OS_STRFs" // NOT ADDED YET
 
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -26,16 +29,16 @@ End
 
 
 function OS_GUI()
-	NewPanel /N=OfficialScripts /k=1 /W=(200,100,450,650)
+	NewPanel /N=OfficialScripts /k=1 /W=(200,100,450,660)
 	ShowTools/A
 	SetDrawLayer UserBack
 
 	SetDrawEnv fstyle= 1
 	DrawText 24,36,"(Step 0: Linescan only)"
 	SetDrawEnv fstyle= 1
-	DrawText 24,36+54,"Step 1: Generate Parameter Table"
+	DrawText 24,36+54,"Step 1: Parameter Table"
 	SetDrawEnv fstyle= 1
-	DrawText 24,90+54,"Step 2: Detrending"
+	DrawText 24,90+54,"Step 2: Pre-formatting"
 	SetDrawEnv fstyle= 1
 	DrawText 24,149+54,"Step 3: ROI placement"
 	SetDrawEnv fstyle= 1
@@ -43,11 +46,12 @@ function OS_GUI()
 	SetDrawEnv fstyle= 1
 	DrawText 24,334+54,"Step 5a: Further optional processes"
 	SetDrawEnv fstyle= 1	
-	DrawText 24,424+54,"Step 6: Database Export/Import (hdf5)"
+	DrawText 24,454+54,"Step 6: Database Export/Import (hdf5)"
 	Button step0,pos={99,39},size={100,26},proc=OS_GUI_Buttonpress,title="Process linescan"
-	Button step1,pos={78,39+54},size={147,26},proc=OS_GUI_Buttonpress,title="Make/Show Parameters"
-	Button step2a,pos={78,94+54},size={71,26},proc=OS_GUI_Buttonpress,title="One Channel"
-	Button step2b,pos={154,94+54},size={71,26},proc=OS_GUI_Buttonpress,title="Ratiometric"
+	Button step1a,pos={78,39+54},size={107,26},proc=OS_GUI_Buttonpress,title="Make / Show"
+	Button step1b,pos={192,39+54},size={34,26},proc=OS_GUI_Buttonpress,title="Kill"	
+	Button step2a,pos={78,94+54},size={71,26},proc=OS_GUI_Buttonpress,title="Standard"
+	Button step2b,pos={154,94+54},size={71,26},proc=OS_GUI_Buttonpress,title="Ratiom."
 	Button step3a1,pos={78,155+54},size={43,20},proc=OS_GUI_Buttonpress,title="Manual"
 	Button step3a2,pos={130,155+54},size={43,20},proc=OS_GUI_Buttonpress,title="Apply"
 	Button step3a3,pos={181,155+54},size={43,20},proc=OS_GUI_Buttonpress,title="Pixels"
@@ -58,10 +62,15 @@ function OS_GUI()
 	Button step5a,pos={78,341+54},size={43,26},proc=OS_GUI_Buttonpress,title="Ave"
 	Button step5b,pos={130,341+54},size={43,26},proc=OS_GUI_Buttonpress,title="Events"			
 	Button step5c,pos={181,341+54},size={43,26},proc=OS_GUI_Buttonpress,title="Kernels"	
-	Button step5d,pos={78,371+54},size={71,26},proc=OS_GUI_Buttonpress,title=" QuickCluster "			
-	Button step5e,pos={154,371+54},size={71,26},proc=OS_GUI_Buttonpress,title=" KernelMap "	
-	Button step6a,pos={78,432+54},size={71,26},proc=OS_GUI_Buttonpress,title="Export"
-	Button step6b,pos={154,432+54},size={71,26},proc=OS_GUI_Buttonpress,title="Import"	
+	Button step5d,pos={78,371+54},size={43,26},proc=OS_GUI_Buttonpress,title=" Cluster "			
+	Button step5e,pos={130,371+54},size={43,26},proc=OS_GUI_Buttonpress,title=" ROI-K"	
+	Button step5f,pos={181,371+54},size={43,26},proc=OS_GUI_Buttonpress,title=" K-Map "	
+
+	Button step5g,pos={78,401+54},size={71,26},proc=OS_GUI_Buttonpress,title=" Sweep "			
+	Button step5h,pos={154,401+54},size={71,26},proc=OS_GUI_Buttonpress,title=" Swoosh "
+	
+	Button step6a,pos={78,462+54},size={71,26},proc=OS_GUI_Buttonpress,title="Export"
+	Button step6b,pos={154,462+54},size={71,26},proc=OS_GUI_Buttonpress,title="Import"	
 	
 	HideTools/A
 end
@@ -78,9 +87,12 @@ Function OS_GUI_Buttonpress(ba) : ButtonControl
 				case "step0":
 					OS_LineScanFormat()
 					break
-				case "step1":
+				case "step1a":
 					OS_ParameterTable()
 					break
+				case "step1b":
+					OS_ParameterTable_Kill()
+					break					
 				case "step2a":
 					OS_DetrendStack()
 					break
@@ -121,8 +133,17 @@ Function OS_GUI_Buttonpress(ba) : ButtonControl
 					OS_Clustering()
 					break
 				case "step5e":
+					OS_KernelfromROI()
+					break
+				case "step5f":
 					OS_IPLKernels()
-					break										
+					break	
+				case "step5g":
+					OS_SkittlesSweep()
+					break		
+				case "step5h":
+					OS_SkittlesSwooshMap()
+					break																					
 				case "step6a":
 					OS_hdf5Export()
 					break										

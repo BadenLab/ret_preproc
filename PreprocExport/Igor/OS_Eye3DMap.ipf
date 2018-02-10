@@ -323,16 +323,57 @@ end
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function OS_Eye3D_Analyse(display_stuff)
-variable display_stuff
+function OS_Eye3D_Analyse(display_stuff,iterateparameter1,iterateparameter2,iterateamplrange)
+variable display_stuff,iterateparameter1,iterateparameter2,iterateamplrange
 		
-variable layers_or_IPLdepth = 1 // layers = 0, depth = 1
-
-variable SD_threshold = 2 // consider only kernels above this SD
+variable SD_threshold =4// consider only kernels above this SD
 variable nBins_angle = 12 // 360 deg divided into how many sectors?
-variable nBins_depth = 25 // 100% IPL depth divdied into how many positions
-variable AngleSmooth = 30 // in degrees
-variable DepthSmooth =5 // in % IPL
+variable nBins_depth = 100 // 100% IPL depth divdied into how many positions
+variable AngleSmooth = 60 // 60 // in degrees
+variable DepthSmooth =6//6//5 // in % IPL
+
+
+wave CI // get clusterIndex to pick the same cells as used in clustering
+wave Positions_2D
+wave KernelList_SD
+
+
+//variable IPLE1_Ampl = 3// % IPL expansion at middle of range ("down")
+//variable IPLE1_position = 0.86*(2*pi)
+//variable IPLE1_bottom = 0// % IPL at bottom that ignores the expansion
+
+//iterateparameter1 = 0.65
+//iterateparameter2 = 5
+//iterateamplrange = 20
+
+variable IPLE_edgecut = 10
+
+variable IPLE1_Ampl =5//iterateparameter2// % IPL expansion of bottom layers
+variable IPLE1_position = 0.95 * (2*pi)// iterateparameter1*2*pi//iterateparameter1*(2*pi)
+
+variable IPLE2_Ampl =5//iterateparameter2// % IPL expansion of top layers
+variable IPLE2_position = 1 * (2*pi) // iterateparameter1*(2*pi)
+
+variable IPLE_Ycut = 45// % IPL at bottom that ignores the compression
+
+//IPLE1_Ampl = 0
+//IPLE2_Ampl = 0
+
+////////////////////////////////////////
+
+//calculate expansion table 1 (top warp)
+make /o/n=(nBins_angle,100) ExpansionTable1 = 0
+Setscale x,0+IPLE1_position,2*pi+IPLE1_position,"" ExpansionTable1
+ExpansionTable1[][0,IPLE_Ycut-1] = (y + IPLE1_Ampl * (Sin(x)+1)/2 ) * ((IPLE_Ycut)/(IPLE_Ycut+IPLE1_Ampl))
+
+make /o/n=(nBins_angle,100) ExpansionTable2 = 0
+Setscale x,0+IPLE2_position,2*pi+IPLE2_position,"" ExpansionTable2
+ExpansionTable2[][IPLE_Ycut,99] = ((y-IPLE_Ycut) + (IPLE2_Ampl * (Sin(x)+1)/2 )) * ((100-IPLE_Ycut)/(IPLE2_Ampl+100-IPLE_Ycut)) +  IPLE_Ycut
+
+make /o/n=(nBins_angle,100) ExpansionTable = 0
+Setscale x,0,2*pi,"" ExpansionTable
+ExpansionTable[][]=ExpansionTable1[p][q]+ExpansionTable2[p][q]
+
 
 ////////////////////////////////////////
 
@@ -342,59 +383,149 @@ AngleSmooth*=nBins_angle / 360
 DepthSmooth*=nBins_depth / 100
 
 
-//make /o/n=5 LayerDepths = {25,46,55,68,81} // Leon's cutoffs
-make /o/n=5 LayerDepths = {18,35,50,60,75}
-
-if (layers_or_IPLdepth==0)
-	nBins_depth = 6
-	
-	DepthSmooth = 0
-	offsetScale=0.1
-endif
-
-
-wave Positions_2D
-wave KernelList_SD
-
 variable nROIs = Dimsize(KernelList_SD,0)
 variable nLEDs = 4
 
 make /o/n=(nBins_angle,nBins_depth,nLEDs*2) Kernel_SDHists = 0
+make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_summed = 0
+make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_Rsummed = 0
+make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_Gsummed = 0
+make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_Bsummed = 0
+make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_Usummed = 0
+make /o/n=(nBins_depth) Kernel_SDHists_summed2 = 0
+make /o/n=(nBins_depth) Kernel_SDHists_Rsummed2 = 0
+make /o/n=(nBins_depth) Kernel_SDHists_Gsummed2 = 0
+make /o/n=(nBins_depth) Kernel_SDHists_Bsummed2 = 0
+make /o/n=(nBins_depth) Kernel_SDHists_Usummed2 = 0
+
 make /o/n=(nBins_angle,nBins_depth,nLEDs*2) Kernel_SDCounter = 1
+make /o/n=(nBins_angle) Kernel_SDCounter2 = 1
+make /o/n=(nBins_angle) Kernel_SDCounter3 = 1
 make /o/n=(nBins_depth) Kernel_SDCounter_all = 1
 
 variable rr,ll,dd
 for (rr=0;rr<nROIs;rr+=1)
 	variable CurrentAngle_bin = ((Positions_2D[rr][0] / (2*pi)) + 0.5) * nBins_angle
-	variable CurrentIPLDepth = Positions_2D[rr][1]
 
-	if (layers_or_IPLdepth==0)
-		Variable CurrentLayer = 5
-		for (dd=0;dd<5;dd+=1)
-			if (CurrentIPLDepth<LayerDepths[dd])
-				CurrentLayer = dd
-				dd=5
-			endif
-		endfor	
-		CurrentIPLDepth = CurrentLayer
-	elseif (layers_or_IPLdepth==1)	
-		CurrentIPLDepth/=100
-		CurrentIPLDepth*=nBins_depth		
-	endif
+	variable CurrentIPLDepth = Positions_2D[rr][1]
+	variable CurrentIPLDepth_corrected=ExpansionTable[CurrentAngle_bin][CurrentIPLDepth]
+
+	CurrentIPLDepth_corrected/=100
+	CurrentIPLDepth_corrected*=nBins_depth		
 	
 	for (ll=0;ll<nLEDs;ll+=1)
-		if (KernelList_SD[rr][ll]>SD_threshold) // ON kernels
-			Kernel_SDHists[CurrentAngle_bin][CurrentIPLDepth][ll*2]+=1// KernelList_SD[rr][ll]
-			Kernel_SDCounter[CurrentAngle_bin][CurrentIPLDepth][ll*2,ll*2+1]+= 1
-			Kernel_SDCounter_all[CurrentIPLDepth]+= 1	
-		elseif (KernelList_SD[rr][ll]<-SD_threshold) // OFF kernels			
-			Kernel_SDHists[CurrentAngle_bin][CurrentIPLDepth][ll*2+1]-=-1// KernelList_SD[rr][ll]			
-			Kernel_SDCounter[CurrentAngle_bin][CurrentIPLDepth][ll*2,ll*2+1]+= 1		
-			Kernel_SDCounter_all[CurrentIPLDepth]+= 1		
+		if (NumType(CI[rr])==0) // if it is a cell used in clustering
+			Kernel_SDCounter2[CurrentAngle_bin]+= 1
+			Kernel_SDHists_summed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+			if (KernelList_SD[rr][ll]>SD_threshold) // ON kernels
+				Kernel_SDHists[CurrentAngle_bin][CurrentIPLDepth_corrected][ll*2]+=1
+				Kernel_SDCounter[CurrentAngle_bin][CurrentIPLDepth_corrected][ll*2,ll*2+1]+= 1
+				Kernel_SDCounter_all[CurrentIPLDepth_corrected]+= 1	
+				if (ll==0)
+					Kernel_SDHists_Rsummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+				elseif (ll==1)
+					Kernel_SDHists_Gsummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+				elseif (ll==2)
+					Kernel_SDHists_Bsummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+				elseif (ll==3)
+					Kernel_SDHists_Usummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1												
+				endif
+			elseif (KernelList_SD[rr][ll]<-SD_threshold) // OFF kernels			
+				Kernel_SDHists[CurrentAngle_bin][CurrentIPLDepth_corrected][ll*2+1]-=-1
+				Kernel_SDCounter[CurrentAngle_bin][CurrentIPLDepth_corrected][ll*2,ll*2+1]+= 1	
+				Kernel_SDCounter_all[CurrentIPLDepth_corrected]+= 1		
+				if (ll==0)
+					Kernel_SDHists_Rsummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+				elseif (ll==1)
+					Kernel_SDHists_Gsummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+				elseif (ll==2)
+					Kernel_SDHists_Bsummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1
+				elseif (ll==3)
+					Kernel_SDHists_Usummed[CurrentAngle_bin][CurrentIPLDepth_corrected]+=1												
+				endif
+			endif
 		endif
 	endfor
 endfor
-Kernel_SDHists[][][]/=Kernel_SDCounter[p][q][r]
+Kernel_SDHists[][][]/=Kernel_SDCounter2[p]/nBins_depth
+Kernel_SDHists_summed[][]/=Kernel_SDCounter2[p]/nBins_depth
+Kernel_SDHists_Rsummed[][]/=Kernel_SDCounter2[p]/nBins_depth
+Kernel_SDHists_Gsummed[][]/=Kernel_SDCounter2[p]/nBins_depth
+Kernel_SDHists_Bsummed[][]/=Kernel_SDCounter2[p]/nBins_depth
+Kernel_SDHists_Usummed[][]/=Kernel_SDCounter2[p]/nBins_depth
+
+Wavestats/Q Kernel_SDCounter_all
+//print "using", V_Sum, "/", nROIs*4, "entries (",100 * V_Sum/(nROIs*4),"%)"
+
+
+
+if (AngleSmooth>0)
+	make /o/n=(nBins_angle*3,nBins_depth,nLEDs*2) Kernel_SDHists_expanded = 0
+	Kernel_SDHists_expanded[0,nBins_angle-1][][]=Kernel_SDHists[p][q][r]
+	Kernel_SDHists_expanded[nBins_angle,2*nBins_angle-1][][]=Kernel_SDHists[p-nBins_angle][q][r]
+	Kernel_SDHists_expanded[2*nBins_angle,3*nBins_angle-1][][]=Kernel_SDHists[p-nBins_angle*2][q][r]		
+	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_expanded
+	Kernel_SDHists[][][]=Kernel_SDHists_expanded[p+nBins_angle][q][r]
+	
+	make /o/n=(nBins_angle*3,nBins_depth) Kernel_SDHists_expanded = 0
+	Kernel_SDHists_expanded[0,nBins_angle-1][]=Kernel_SDHists_summed[p][q]
+	Kernel_SDHists_expanded[nBins_angle,2*nBins_angle-1][]=Kernel_SDHists_summed[p-nBins_angle][q]
+	Kernel_SDHists_expanded[2*nBins_angle,3*nBins_angle-1][]=Kernel_SDHists_summed[p-nBins_angle*2][q]		
+	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_expanded
+	Kernel_SDHists_summed[][]=Kernel_SDHists_expanded[p+nBins_angle][q]
+	Killwaves Kernel_SDHists_expanded
+	
+	make /o/n=(nBins_angle*3,nBins_depth) Kernel_SDHists_expanded = 0
+	Kernel_SDHists_expanded[0,nBins_angle-1][]=Kernel_SDHists_Rsummed[p][q]
+	Kernel_SDHists_expanded[nBins_angle,2*nBins_angle-1][]=Kernel_SDHists_Rsummed[p-nBins_angle][q]
+	Kernel_SDHists_expanded[2*nBins_angle,3*nBins_angle-1][]=Kernel_SDHists_Rsummed[p-nBins_angle*2][q]		
+	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_expanded
+	Kernel_SDHists_Rsummed[][]=Kernel_SDHists_expanded[p+nBins_angle][q]
+	Killwaves Kernel_SDHists_expanded
+	
+	make /o/n=(nBins_angle*3,nBins_depth) Kernel_SDHists_expanded = 0
+	Kernel_SDHists_expanded[0,nBins_angle-1][]=Kernel_SDHists_Gsummed[p][q]
+	Kernel_SDHists_expanded[nBins_angle,2*nBins_angle-1][]=Kernel_SDHists_Gsummed[p-nBins_angle][q]
+	Kernel_SDHists_expanded[2*nBins_angle,3*nBins_angle-1][]=Kernel_SDHists_Gsummed[p-nBins_angle*2][q]		
+	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_expanded
+	Kernel_SDHists_Gsummed[][]=Kernel_SDHists_expanded[p+nBins_angle][q]
+	Killwaves Kernel_SDHists_expanded
+	
+	make /o/n=(nBins_angle*3,nBins_depth) Kernel_SDHists_expanded = 0
+	Kernel_SDHists_expanded[0,nBins_angle-1][]=Kernel_SDHists_Bsummed[p][q]
+	Kernel_SDHists_expanded[nBins_angle,2*nBins_angle-1][]=Kernel_SDHists_Bsummed[p-nBins_angle][q]
+	Kernel_SDHists_expanded[2*nBins_angle,3*nBins_angle-1][]=Kernel_SDHists_Bsummed[p-nBins_angle*2][q]		
+	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_expanded
+	Kernel_SDHists_Bsummed[][]=Kernel_SDHists_expanded[p+nBins_angle][q]
+	Killwaves Kernel_SDHists_expanded
+	
+	make /o/n=(nBins_angle*3,nBins_depth) Kernel_SDHists_expanded = 0
+	Kernel_SDHists_expanded[0,nBins_angle-1][]=Kernel_SDHists_Usummed[p][q]
+	Kernel_SDHists_expanded[nBins_angle,2*nBins_angle-1][]=Kernel_SDHists_Usummed[p-nBins_angle][q]
+	Kernel_SDHists_expanded[2*nBins_angle,3*nBins_angle-1][]=Kernel_SDHists_Usummed[p-nBins_angle*2][q]		
+	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_expanded
+	Kernel_SDHists_Usummed[][]=Kernel_SDHists_expanded[p+nBins_angle][q]
+	Killwaves Kernel_SDHists_expanded
+	
+endif
+if (DepthSmooth>0)
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_summed	
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_summed2
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_Rsummed
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_Gsummed
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_Bsummed
+	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_Usummed			
+endif
+variable bb
+for (bb=0;bb<nBins_angle;bb+=1)
+	Kernel_SDHists_summed2[]+=Kernel_SDHists_summed[bb][p]/nBins_angle
+	Kernel_SDHists_Rsummed2[]+=Kernel_SDHists_Rsummed[bb][p]/nBins_angle
+	Kernel_SDHists_Gsummed2[]+=Kernel_SDHists_Gsummed[bb][p]/nBins_angle
+	Kernel_SDHists_Bsummed2[]+=Kernel_SDHists_Bsummed[bb][p]/nBins_angle
+	Kernel_SDHists_Usummed2[]+=Kernel_SDHists_Usummed[bb][p]/nBins_angle			
+endfor
+
 make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_OnR = Kernel_SDHists[p][q][0]
 make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_OffR = Kernel_SDHists[p][q][1]
 make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_OnG = Kernel_SDHists[p][q][2]
@@ -404,56 +535,39 @@ make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_OffB = Kernel_SDHists[p][q][5
 make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_OnU = Kernel_SDHists[p][q][6]
 make /o/n=(nBins_angle,nBins_depth) Kernel_SDHists_OffU = Kernel_SDHists[p][q][7]
 
-if (AngleSmooth>0)
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OnR
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OffR
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OnG
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OffG
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OnB
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OffB
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OnU
-	Smooth /Dim=0 AngleSmooth, Kernel_SDHists_OffU
-endif
-if (DepthSmooth>0)
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OnR
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OffR
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OnG
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OffG
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OnB
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OffB
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OnU
-	Smooth /Dim=1 DepthSmooth, Kernel_SDHists_OffU
-endif
+make /o/n=(nBins_angle,nBins_depth) IPLMap_R_OnOff = 0
+make /o/n=(nBins_angle,nBins_depth) IPLMap_G_OnOff = 0
+make /o/n=(nBins_angle,nBins_depth) IPLMap_B_OnOff = 0
+make /o/n=(nBins_angle,nBins_depth) IPLMap_U_OnOff = 0
+
+IPLMap_R_OnOff[][]=((kernel_SDHists_OnR[p][q]) - (kernel_SDHists_OffR[p][q])) / ((kernel_SDHists_OnR[p][q]) + (kernel_SDHists_OffR[p][q]))
+IPLMap_G_OnOff[][]=((kernel_SDHists_OnG[p][q]) - (kernel_SDHists_OffG[p][q])) / ((kernel_SDHists_OnG[p][q]) + (kernel_SDHists_OffG[p][q]))
+IPLMap_B_OnOff[][]=((kernel_SDHists_OnB[p][q]) - (kernel_SDHists_OffB[p][q])) / ((kernel_SDHists_OnB[p][q]) + (kernel_SDHists_OffB[p][q]))
+IPLMap_U_OnOff[][]=((kernel_SDHists_OnU[p][q]) - (kernel_SDHists_OffU[p][q])) / ((kernel_SDHists_OnU[p][q]) + (kernel_SDHists_OffU[p][q]))
 
 
-Setscale x,-180,180,"deg" Kernel_SDHists
-Setscale x,-180,180,"deg" Kernel_SDHists_OnR, Kernel_SDHists_OffR
-Setscale x,-180,180,"deg" Kernel_SDHists_OnG, Kernel_SDHists_OffG
-Setscale x,-180,180,"deg" Kernel_SDHists_OnB, Kernel_SDHists_OffB
-Setscale x,-180,180,"deg" Kernel_SDHists_OnU, Kernel_SDHists_OffU
+Setscale x,-1,1,"pi radians" Kernel_SDHists
+Setscale x,-1,1,"pi radians" Kernel_SDHists_OnR, Kernel_SDHists_OffR,IPLMap_R_OnOff
+Setscale x,-1,1,"pi radians" Kernel_SDHists_OnG, Kernel_SDHists_OffG,IPLMap_G_OnOff
+Setscale x,-1,1,"pi radians" Kernel_SDHists_OnB, Kernel_SDHists_OffB,IPLMap_B_OnOff
+Setscale x,-1,1,"pi radians" Kernel_SDHists_OnU, Kernel_SDHists_OffU,IPLMap_U_OnOff
 
-setscale y,0,100,"%" Kernel_SDHists
+
+setscale y,0,100,"%" Kernel_SDHists, Kernel_SDHists_summed, Kernel_SDHists_summed2
+setscale y,0,100,"%" Kernel_SDHists_Rsummed2, Kernel_SDHists_Gsummed2, Kernel_SDHists_Bsummed2, Kernel_SDHists_Usummed2
 setscale x,0,100,"%" Kernel_SDCounter_all
-setscale y,0,100,"%" Kernel_SDHists_OnR, Kernel_SDHists_OffR
-setscale y,0,100,"%" Kernel_SDHists_OnG, Kernel_SDHists_OffG
-setscale y,0,100,"%" Kernel_SDHists_OnB, Kernel_SDHists_OffB
-setscale y,0,100,"%" Kernel_SDHists_OnU, Kernel_SDHists_OffU
+setscale y,0,100,"%" Kernel_SDHists_OnR, Kernel_SDHists_OffR,IPLMap_R_OnOff
+setscale y,0,100,"%" Kernel_SDHists_OnG, Kernel_SDHists_OffG,IPLMap_G_OnOff
+setscale y,0,100,"%" Kernel_SDHists_OnB, Kernel_SDHists_OffB,IPLMap_B_OnOff
+setscale y,0,100,"%" Kernel_SDHists_OnU, Kernel_SDHists_OffU,IPLMap_U_OnOff
 
 
-//make /o/n=(nBins_angle * 2,nBins_depth * 4,3) IPL_Overview = 0
-//IPL_Overview[0,nBins_angle-1][0,nBins_depth-1][0]=Kernel_SDHists[p][q][0] // Red ON
-//IPL_Overview[nBins_angle,2*nBins_angle-1][0,nBins_depth-1][0]=Kernel_SDHists[p-nBins_angle][q][1] // Red OFF
-//IPL_Overview[0,nBins_angle-1][nBins_depth,2*nBins_depth-1][1]=Kernel_SDHists[p][q-nBins_depth][2] // Green ON
-//IPL_Overview[nBins_angle,2*nBins_angle-1][nBins_depth,2*nBins_depth-1][1]=Kernel_SDHists[p-nBins_angle][q-nBins_depth][3] // Green OFF
-//IPL_Overview[0,nBins_angle-1][2*nBins_depth,3*nBins_depth-1][2]=Kernel_SDHists[p][q-2*nBins_depth][4] // Blue ON
-//IPL_Overview[nBins_angle,2*nBins_angle-1][2*nBins_depth,3*nBins_depth-1][2]=Kernel_SDHists[p-nBins_angle][q-2*nBins_depth][5] // Blue OFF
-//IPL_Overview[0,nBins_angle-1][3*nBins_depth,4*nBins_depth-1][0]=Kernel_SDHists[p][q-3*nBins_depth][6] // UV ON
-//IPL_Overview[nBins_angle,2*nBins_angle-1][3*nBins_depth,4*nBins_depth-1][0]=Kernel_SDHists[p-nBins_angle][q-3*nBins_depth][7] // UV OFF
-//IPL_Overview[0,nBins_angle-1][3*nBins_depth,4*nBins_depth-1][2]=Kernel_SDHists[p][q-3*nBins_depth][6] // UV ON
-//IPL_Overview[nBins_angle,2*nBins_angle-1][3*nBins_depth,4*nBins_depth-1][2]=Kernel_SDHists[p-nBins_angle][q-3*nBins_depth][7] // UV OFF
-//IPL_Overview*=2^16
+make /o/n=(nBins_depth) currentFFT = 0
+make /o/n=(nBins_angle,100-2*IPLE_edgecut) TempHist = Kernel_SDHists_Summed[p][q+IPLE_edgecut]
+
+FFT/OUT=4/DEST=TempHist_FFT TempHist
+currentFFT[]+=TempHist_FFT[0][p] 
+
 
 
 // display
@@ -464,21 +578,29 @@ if (display_stuff==1)
 	display /k=1 
 	Appendimage /l=RedY /b=OnX Kernel_SDHists_OnR
 	Appendimage /l=RedY /b=OffX Kernel_SDHists_OffR
+	Appendimage /l=RedY /b=OnOffX IPLMap_R_OnOff	
 	Appendimage /l=GreenY /b=OnX Kernel_SDHists_OnG
 	Appendimage /l=GreenY /b=OffX Kernel_SDHists_OffG
+	Appendimage /l=GreenY /b=OnOffX IPLMap_G_OnOff
 	Appendimage /l=BlueY /b=OnX Kernel_SDHists_OnB
 	Appendimage /l=BlueY /b=OffX Kernel_SDHists_OffB
+	Appendimage /l=BlueY /b=OnOffX IPLMap_B_OnOff
 	Appendimage /l=UVY /b=OnX Kernel_SDHists_OnU
-	Appendimage /l=UVY /b=OffX Kernel_SDHists_OffU								
+	Appendimage /l=UVY /b=OffX Kernel_SDHists_OffU	
+	Appendimage /l=UVY /b=OnOffX IPLMap_U_OnOff									
 	
 	ModifyImage Kernel_SDHists_OnR ctab= {0,Display_range,Red,0}
 	ModifyImage Kernel_SDHists_OffR ctab= {0,Display_range,Red,0}
+	ModifyImage IPLMap_R_OnOff ctab= {-1,1,BlueRedGreen,0}	
 	ModifyImage Kernel_SDHists_OnG ctab= {0,Display_range,Green,0}
 	ModifyImage Kernel_SDHists_OffG ctab= {0,Display_range,Green,0}
+	ModifyImage IPLMap_G_OnOff ctab= {-1,1,BlueRedGreen,0}		
 	ModifyImage Kernel_SDHists_OnB ctab= {0,Display_range,Blue,0}
 	ModifyImage Kernel_SDHists_OffB ctab= {0,Display_range,Blue,0}
+	ModifyImage IPLMap_B_OnOff ctab= {-1,1,BlueRedGreen,0}		
 	ModifyImage Kernel_SDHists_OnU ctab= {0,Display_range,magenta,0}
 	ModifyImage Kernel_SDHists_OffU ctab= {0,Display_range,magenta,0}	
+	ModifyImage IPLMap_U_OnOff ctab= {-1,1,BlueRedGreen,0}	
 	
 	•ModifyGraph fSize=8,lblPos(OnX)=47,lblPos(OffX)=47,axisEnab(RedY)={0.8,1};DelayUpdate
 	•ModifyGraph axisEnab(OnX)={0.05,0.5},axisEnab(OffX)={0.55,1};DelayUpdate
@@ -487,19 +609,23 @@ if (display_stuff==1)
 	•ModifyGraph freePos(OnX)={0,kwFraction},freePos(OffX)={0,kwFraction};DelayUpdate
 	•ModifyGraph freePos(GreenY)={0,kwFraction},freePos(BlueY)={0,kwFraction};DelayUpdate
 	•ModifyGraph freePos(UVY)={0,kwFraction};DelayUpdate
-	•Label OnX "\\Z10Eye angle (\U)";DelayUpdate
-	•Label OffX "\\Z10 Eye angle (\U)"
-	
-	ModifyGraph nticks(OnX)=10;DelayUpdate
-	SetAxis OffX -180,180
-	ModifyGraph nticks(OffX)=10;DelayUpdate
-	SetAxis OffX -180,180
+	•Label OnX "\\Z10 \U";DelayUpdate
+	•Label OffX "\\Z10 \U"
+	•Label OnOffX "\\Z10 \U";DelayUpdate
 	
 	•ModifyGraph noLabel(RedY)=1,noLabel(GreenY)=1,noLabel(BlueY)=1,noLabel(UVY)=1;DelayUpdate
 	•ModifyGraph axThick(RedY)=0,axThick(GreenY)=0,axThick(BlueY)=0,axThick(UVY)=0;DelayUpdate
 	•ModifyGraph lblPos=47
 	ModifyGraph lblPos(GreenY)=0;DelayUpdate
-	Label GreenY "\\Z10IPL (layers 1-6)"
+
+	ModifyGraph noLabel(RedY)=2,noLabel(GreenY)=2,noLabel(BlueY)=2,noLabel(UVY)=2;DelayUpdate
+	•ModifyGraph lblPos=47,axisEnab(OnX)={0,0.3},axisEnab(OffX)={0.35,0.65};DelayUpdate
+	•ModifyGraph axisEnab(OnOffX)={0.7,1},freePos(OnOffX)={0,kwFraction};DelayUpdate
+	•Label GreenY "";DelayUpdate
+	•SetAxis OnX -1,1;DelayUpdate
+	•SetAxis OffX -1,1;DelayUpdate
+	•SetAxis OnOffX -1,1
+
 
 
 	//
@@ -508,7 +634,7 @@ if (display_stuff==1)
 	String XONAxisname,XOFFAxisname,TraceName
 	make /o/n=(nBins_depth) IPLPLotwave = -1
 	setscale x,0,100,"%" IPLPlotwave
-	variable bb
+
 	for (bb=0;bb<nBins_angle;bb+=1)
 		XONAxisName = "EyePosON"+Num2Str(bb)
 		XOFFAxisName = "EyePosOFF"+Num2Str(bb)
@@ -602,26 +728,9 @@ if (display_stuff==1)
 
 	•ModifyGraph lblPos(IPLY)=47,axisEnab(IPLY)={0.05,1};DelayUpdate
 	•Label IPLY "\\Z10IPL depth (\U)"
-	if (layers_or_IPLdepth==1)
-		SetAxis IPLY 0,100
-	endif
-
-	ShowTools/A arrow
+	SetAxis IPLY 0,100
 
 
-	SetDrawEnv ycoord= IPLY,dash= 1;DelayUpdate
-	•DrawLine 0,LayerDepths[0],1,LayerDepths[0]
-	SetDrawEnv ycoord= IPLY,dash= 1;DelayUpdate
-	•DrawLine 0,LayerDepths[1],1,LayerDepths[1]
-	SetDrawEnv ycoord= IPLY,dash= 1;DelayUpdate
-	•DrawLine 0,LayerDepths[2],1,LayerDepths[2]
-	SetDrawEnv ycoord= IPLY,dash= 1;DelayUpdate
-	•DrawLine 0,LayerDepths[3],1,LayerDepths[3]
-	SetDrawEnv ycoord= IPLY,dash= 1;DelayUpdate
-	•DrawLine 0,LayerDepths[4],1,LayerDepths[4]
-
-
-	HideTools/A 
 
 endif
 

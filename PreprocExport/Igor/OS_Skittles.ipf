@@ -1,5 +1,178 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// SWOOSH MAP ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function OS_SkittlesSwooshMap()
+
+// 1 // check for Parameter Table
+if (waveexists($"OS_Parameters")==0)
+	print "Warning: OS_Parameters wave not yet generated - doing that now..."
+	OS_ParameterTable()
+	DoUpdate
+endif
+wave OS_Parameters
+// 2 //  check for Detrended Data stack
+variable Channel = OS_Parameters[%Data_Channel]
+if (waveexists($"wDataCh"+Num2Str(Channel)+"_detrended")==0)
+	print "Warning: wDataCh"+Num2Str(Channel)+"_detrended wave not yet generated - doing that now..."
+	OS_DetrendStack()
+endif
+// 3 //  check for ROI_Mask
+if (waveexists($"ROIs")==0)
+	print "Warning: ROIs wave not yet generated - doing that now (using correlation algorithm)..."
+	OS_AutoRoiByCorr()
+	DoUpdate
+endif
+// 4 //  check if Traces and Triggers are there
+if (waveexists($"Triggertimes")==0)
+	print "Warning: Traces and Trigger waves not yet generated - doing that now..."
+	OS_TracesAndTriggers()
+	DoUpdate
+endif
+// 5 //  check if Averages"N" is there
+if (waveexists($"Averages"+Num2Str(Channel))==0)
+	print "Warning: Averages wave not yet generated - doing that now..."
+	OS_BasicAveraging()
+	DoUpdate
+endif
+
+// Hardcoded SkittleSwoosh positions - saves having to load the array
+make /o/n=(80) SwooshPositionsX1 = {384,382,380,377,375,372,369,366,364,361,358,355,352,349,346,343,340,338,335,332,386,384,381,379,376,373,370,367,364,361,358,355,352,349,345,342,339,336,333,331,388,386,383,381,378,375,372,369,365,362,358,355,351,348,345,341,338,335,332,329,391,388,386,383,380,377,373,370,366,363,359,355,351,347,344,340,337,333,330,327}
+make /o/n=(80) SwooshPositionsX2 = {394,391,388,385,382,379,375,371,367,363,359,355,351,347,343,339,335,331,328,325,397,394,391,388,385,381,377,373,369,364,360,355,351,346,341,337,333,329,325,322,400,398,395,391,388,384,380,376,371,366,361,355,350,345,340,335,330,326,322,318,404,402,399,395,392,388,383,378,373,368,362,356,350,344,338,332,327,323,318,314}
+make /o/n=(80) SwooshPositionsY1 = {420,419,418,417,417,416,415,415,414,414,414,414,414,414,414,414,415,415,416,417,418,416,415,414,414,413,412,412,411,411,411,410,410,411,411,411,412,412,413,414,415,414,413,412,411,410,409,408,408,408,407,407,407,407,408,408,409,409,410,411,412,411,410,409,408,407,406,405,405,404,404,404,404,404,405,405,406,406,407,408}
+make /o/n=(80) SwooshPositionsY2 = {410,408,407,406,405,404,403,402,402,401,401,401,401,401,402,402,403,403,404,405,407,406,405,403,402,401,400,399,399,398,398,398,398,398,398,399,400,401,402,403,405,404,402,401,399,398,397,396,396,395,395,395,395,395,395,396,397,398,399,400,403,401,400,398,397,396,394,393,393,392,392,391,391,392,392,393,394,395,396,398}
+make /o/n=(160,2) SwooshPositions = NaN
+SwooshPositions[0,79][1] = SwooshPositionsX1[p]
+SwooshPositions[0,79][0] = SwooshPositionsY1[p]
+SwooshPositions[80,159][1] = SwooshPositionsX2[p-80]
+SwooshPositions[80,159][0] = SwooshPositionsY2[p-80]
+killwaves SwooshPositionsX1, SwooshPositionsY1,SwooshPositionsX2, SwooshPositionsY2
+
+// flags from "OS_Parameters"
+variable Display_maps = OS_Parameters[%Display_Stuff]
+variable LineDuration = OS_Parameters[%LineDuration]
+
+// data handling
+string input_name = "Averages"+Num2Str(Channel)
+duplicate /o $input_name InputData
+
+wave QualityCriterion
+variable nP = DimSize(InputData,0)
+variable nRois = DimSize(InputData,1)
+variable nPositions = Dimsize(SwooshPositions,0)
+make /o/n=(nPositions) currentwave = SwooshPositions[p][1]
+WaveStats/Q currentwave
+Variable MapX_min = V_Min
+Variable MapX_max = V_Max
+make /o/n=(nPositions) currentwave = SwooshPositions[p][0]
+WaveStats/Q currentwave
+Variable MapY_min = V_Min
+Variable MapY_max = V_Max
+
+string output_name1 = "SwooshMaps"+Num2Str(Channel)
+
+variable pp,rr,cc
+variable Spotdur_s = 0.2 // how long is each spot presented for (in s)
+variable MapPxSize = 4
+variable Smoothingfactor = 3200
+variable ResponseDelay_s =  -0.0 // negative, how much do we have to bring the responses forward to compensate for any delays in visual response)
+variable ResponseDelay_p = ResponseDelay_s/LineDuration
+
+// Shift InputData arra by ResponseDelay_p points
+duplicate /o inputData InputData_shift
+Multithread InputData_shift[ResponseDelay_p,nP][]=InputData[p-ResponseDelay_p][q]
+Multithread InputData_shift[0,ResponseDelay_p-1][]=InputData[nP-ResponseDelay_p+p][q]
+
+// Differentiate and Smooth Input
+duplicate /o InputData_shift InputData_Smth
+Smooth Smoothingfactor, InputData, InputData_Smth
+Differentiate/DIM=0  InputData_Smth/D=InputData_Smth_DIF
+InputData_Smth_DIF[][]=(InputData_Smth_DIF[p][q]<0)?(0):(InputData_Smth_DIF[p][q])
+
+// Parsing response Averages to the position map
+make /o/n=(nPositions,nROIs) SwooshMaps = NaN
+make /o/n=(MapX_Max - MapX_Min+MapPxSize*2, MapY_Max-MapY_min,nRois) SwooshMaps_Px = 0
+make /o/n=(MapX_Max - MapX_Min+MapPxSize*2, MapY_Max-MapY_min,nRois) SwooshMaps_Px0 = 0
+
+
+variable nP_per_position = Spotdur_s/LineDuration
+
+ 
+for (rr=0;rr<nROIs;rr+=1)
+
+	for (pp=1;pp<nPositions-1;pp+=1)	 // make response per point array
+
+		make /o/n=(nP_per_position) currentwave = InputData_Smth_DIF[p+pp*nP_per_position][rr]
+		WaveStats/Q currentwave
+	
+		
+		SwooshMaps[pp][rr] = V_SDev
+	
+		// find out average position of the swoop between points
+		variable oldX = SwooshPositions[pp-1][1]
+		variable oldY = SwooshPositions[pp-1][0]		
+		variable newX = SwooshPositions[pp][1]
+		variable newY = SwooshPositions[pp][0]
+	
+		variable midX = (newX-oldX)/2+oldX 
+		variable midY = (newY-oldY)/2+oldY	
+	
+		// map that response to the pixel-map
+		variable MapXPos1 = midX - MapX_Min 
+		variable MapXPos2 = midX - MapX_Min  + 2*MapPxSize
+		variable MapYPos1 = midY - MapY_Min  
+		variable MapYPos2 = midY - MapY_Min  + 2*MapPxSize
+	
+		SwooshMaps_Px0[MapXPos1,MapXPos2][MapYPos1,MapYPos2][rr]+=1
+		SwooshMaps_Px[MapXPos1,MapXPos2][MapYPos1,MapYPos2][rr]+=V_SDev
+		
+	endfor
+
+	SwooshMaps_Px[][][rr]/=SwooshMaps_Px0[p][q][rr] // normalise maps by number of passes
+	
+endfor
+
+// export handling
+for (rr=0;rr<nROIs;rr+=1)
+	string output_name2 = 'output_name1'+Num2Str(rr)
+	make /o/n=(MapX_Max - MapX_Min+MapPxSize*2, MapY_Max-MapY_min) currentmap = SwooshMaps_Px[p][q][rr]
+	setscale x,MapX_Min-MapPxSize,MapX_Max+MapPxSize,"mA" currentmap
+	setscale y,MapY_Min-MapPxSize,MapY_Max+MapPxSize,"mA" currentmap
+	duplicate /o Currentmap $output_name2
+endfor
+setscale x,MapX_Min-MapPxSize,MapX_Max+MapPxSize,"mA" SwooshMaps_Px
+setscale y,MapY_Min-MapPxSize,MapY_Max+MapPxSize,"mA" SwooshMaps_Px
+
+duplicate /o SwooshMaps_Px $output_name1
+	
+// display
+
+if (Display_maps==1)
+	for (rr=0;rr<nROIs;rr+=1)
+		display /k=1
+		ModifyGraph width=100
+		ModifyGraph height={Aspect,0.6}
+		string Displaymap = 'Output_name1'+Num2Str(rr)
+		Appendimage $Displaymap
+		•ModifyGraph mirror=0,fSize=8,axisEnab(left)={0.05,1},axisEnab(bottom)={0.05,1};DelayUpdate
+		•Label left "\\Z10Y-Current (\U)";DelayUpdate
+		•Label bottom "\\Z10ROI "+Num2Str(rr)+", X-Current (\U)"
+		string mapname = "Swooshmaps"+Num2Str(Channel)+Num2Str(rr)
+		ModifyImage $mapname ctab= {*,*,Rainbow,1}
+		SetAxis/A/R left;DelayUpdate
+		SetAxis/A/R bottom
+	endfor
+endif
+
+
+// cleanup
+//killwaves InputData, InputData_shift, InputData_smth, InputData_smth_DIF, SwooshMaps, Swooshmaps_Px, SwooshMaps_Px0, currentwave, Currentmap
+
+
+end
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////// SKITTLES SWEEP
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

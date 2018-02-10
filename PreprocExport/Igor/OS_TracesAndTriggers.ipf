@@ -48,8 +48,8 @@ variable TriggerHeight_Display = OS_Parameters[%Trigger_DisplayHeight]
 variable LineDuration = OS_Parameters[%LineDuration]
 variable Ignore1stXseconds = OS_Parameters[%Ignore1stXseconds]
 variable IgnoreLastXseconds = OS_Parameters[%IgnoreLastXseconds]
-variable SkipFirstTrigger = OS_Parameters[%Skip_First_Trigger] 
-variable SkipLastTrigger = OS_Parameters[%Skip_Last_Trigger] // KF 20160310
+variable SkipFirstTriggers = OS_Parameters[%Skip_First_Triggers] 
+variable SkipLastTriggers = OS_Parameters[%Skip_Last_Triggers] // KF 20160310
 variable TriggerMode = OS_Parameters[%Trigger_Mode]
 variable StimulatorDelay = OS_Parameters[%StimulatorDelay]
 variable LightArtifactCut = OS_Parameters[%LightArtifact_cut]
@@ -146,20 +146,26 @@ for (ff=0;ff<nF-1;ff+=1)
 		endfor
 	endfor
 endfor
-if (SkipLastTrigger == 1)
-	make /o/n=(nTriggers-1) tempwave1 = OutputTriggerValues[p+1]
-	make /o/n=(nTriggers-1) tempwave2 = OutputTriggerTimes[p+1]	
-	OutputTriggerValues[0,nTriggers-2] = tempwave1[p]
-	OutputTriggerTimes[0,nTriggers-2] = tempwave2[p]
-	nTriggers-=1
+if (SkipLastTriggers > 0)
+	make /o/n=(nTriggers-SkipLastTriggers) tempwave1 = OutputTriggerValues[p]
+	make /o/n=(nTriggers-SkipLastTriggers) tempwave2 = OutputTriggerTimes[p]	
+	OutputTriggerValues[0,nTriggers-(SkipLastTriggers+1)] = tempwave1[p]
+	OutputTriggerTimes[0,nTriggers-(SkipLastTriggers+1)] = tempwave2[p]
+	nTriggers-=SkipLastTriggers
 	killwaves tempwave1, tempwave2
 endif
 
-if (SkipLastTrigger == 1) // KF 20160310
-	nTriggers-=1
+if (SkipFirstTriggers > 0)
+	make /o/n=(nTriggers-SkipFirstTriggers) tempwave1 = OutputTriggerValues[p+SkipFirstTriggers]
+	make /o/n=(nTriggers-SkipFirstTriggers) tempwave2 = OutputTriggerTimes[p+SkipFirstTriggers]	
+	OutputTriggerValues[0,nTriggers-(SkipFirstTriggers+1)] = tempwave1[p]
+	OutputTriggerTimes[0,nTriggers-(SkipFirstTriggers+1)] = tempwave2[p]
+	nTriggers-=SkipFirstTriggers
+	killwaves tempwave1, tempwave2
 endif
 
-print nTriggers, " Triggers found"
+
+print nTriggers, " Triggers found after discarding first",SkipFirstTriggers,"and last", SkipLastTriggers
 if (TriggerMode>1)
 	print "Display is skipping every",TriggerMode,",Triggers as defined by the TriggerMode parameter"
 endif	

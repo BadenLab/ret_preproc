@@ -114,13 +114,6 @@ for (rr=0;rr<nRois;rr+=1)
 			CurrentTime[ff*nY+yy]=(InputTraceTimes[ff+1][rr]*yy+InputTraceTimes[ff][rr]*(nY-yy))/nY // andre addition 2016 04 13
 		endfor
 	endfor
-
-// for hanned interpolation
-//	make /o/n=(nF) CurrentTrace = InputTraces[p][rr]
-//	setscale x,InputTraceTimes[0][rr],InputTraceTimes[nF-1][rr],"s" CurrentTrace
-//	Resample/RATE=(1/LineDuration) CurrentTrace
-
-
 	variable lineshift = round(InputTraceTimes[0][rr] / LineDuration)
 	OutputTracesUpsampled[lineshift,nPoints-4*FrameDuration/LineDuration][rr] = CurrentTrace[p-lineshift] // ignores last 4 frames of original recording to avoid Array overrun
 	OutputTimesUpsampled[lineshift,nPoints-4*FrameDuration/LineDuration][rr] = CurrentTime[p-lineshift] // andre additinon 2016 04 13

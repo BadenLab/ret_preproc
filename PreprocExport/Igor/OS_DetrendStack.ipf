@@ -24,16 +24,52 @@ if (waveexists($"OS_Parameters")==0)
 endif
 wave OS_Parameters
 variable Channel = OS_Parameters[%Data_Channel]
+variable TriggerChannel = OS_Parameters[%Trigger_Channel]
 variable nSeconds_smooth = OS_Parameters[%Detrend_smooth_window]
 variable LightArtifactCut = OS_Parameters[%LightArtifact_cut]
+variable nPlanes = OS_Parameters[%nPlanes]
+variable SkipDetrend = OS_Parameters[%Detrend_skip]
 
 // data handling
 string input_name = "wDataCh"+Num2Str(Channel)
+string input_name2 = "wDataCh"+Num2Str(TriggerChannel)
 string output_name = "wDataCh"+Num2Str(Channel)+"_detrended"
+string output_name2 = "wDataCh"+Num2Str(TriggerChannel) // this will overwrite wDataCh2 e.g. - but there is the TriggerData_original backup
+
 duplicate /o $input_name InputData
+if (waveexists($"TriggerData_original")==0)
+	duplicate /o $input_name2 TriggerData_original
+	duplicate /o $input_name2 TriggerData
+else
+	wave TriggerData_original
+	duplicate /o TriggerData_original TriggerData
+endif
+
+
 variable nX = DimSize(InputData,0)
 variable nY = DimSize(InputData,1)
 variable nF = DimSize(InputData,2)
+
+variable pp
+
+// multiplane deinterleave
+if (nPlanes>1)
+	print "Deinterleaving", nPlanes, "planes"
+	
+	variable nF_true = floor(nF / nPlanes)
+	
+	make /o/n=(nX, nY*nPlanes, nF_true) InputData_deinterleaved = NaN
+	make /o/n=(nX, nY*nPlanes, nF_true) TriggerData_deinterleaved = NaN
+	for (pp=0;pp<nPlanes;pp+=1)
+		Multithread InputData_deinterleaved[][nY*pp,nY*(pp+1)-1][]=InputData[p][q-nY*pp][r*nPlanes+pp]
+		Multithread TriggerData_deinterleaved[][nY*pp,nY*(pp+1)-1][]=TriggerData[p][q-nY*pp][r*nPlanes+pp]
+	endfor
+	Duplicate/o InputData_deinterleaved InputData
+	Duplicate/o TriggerData_deinterleaved TriggerData	
+	nY*=nPlanes
+	nF=nF_true
+
+endif
 duplicate/o InputData OutputData
 
 // calculate size of smoothing window
@@ -53,7 +89,9 @@ for (xx=0; xx<nX; xx+=1)
 		mean_image[xx][yy]=V_Avg
 	endfor
 endfor
-Smooth/DIM=2 Smoothingfactor, InputData
+if (SkipDetrend==0)
+	Smooth/DIM=2 Smoothingfactor, InputData
+endif
 Multithread OutputData[][][]-=InputData[p][q][r]-Mean_image[p][q]
 
 // cut things
@@ -66,10 +104,11 @@ killwaves tempimage
 
 // generate output
 duplicate /o OutputData $output_name
+duplicate /o TriggerData $output_name2
 duplicate /o mean_image Stack_Ave
 
 // cleanup
-killwaves CurrentTrace,InputData,OutputData,mean_image
+killwaves CurrentTrace,InputData,OutputData,mean_image, InputData_deinterleaved, TriggerData_deinterleaved, TriggerData
 
 // outgoing dialogue
 print " complete..."
