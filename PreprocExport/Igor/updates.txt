@@ -71,7 +71,12 @@ OS update 2018 02 10
 	This is the Swooshmap as Phil had already, except that now the swoosh positions are already in the script
 	so no need to load extra. TBC
 	
+OS update 2018 02 11
 	
-
+// Enhanced ROI-K function
+	Now also calculates Crosscorrelation functions
+	Takes more than one ROI - all will be relative to Seed ROI as defined in OS_Parameters (last entry)
+	Plots the Other ROI Kernel and CrossCorrs against time
+	--> try setting more than 1 ROI altering the Seed ROI
 	
   

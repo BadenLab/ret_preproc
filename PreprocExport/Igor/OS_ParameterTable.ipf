@@ -275,6 +275,10 @@ SetDimLabel 0,entry_position,ROIKernelSmooth_space,OS_Parameters
 OS_Parameters[%ROIKernelSmooth_space] = 1 // ROIKernel Smoothing (pixels)
 entry_position+=1
 
+SetDimLabel 0,entry_position,ROIKernel_seedROI,OS_Parameters
+OS_Parameters[%ROIKernel_seedROI] = 0 // Which ROI is all calculated relative to, default: 0
+entry_position+=1
+
 /// redimension the OS_parameter table, so it doesn't have trailing NaN's
 redimension /N=(entry_position) OS_Parameters
 
