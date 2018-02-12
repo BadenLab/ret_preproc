@@ -72,8 +72,8 @@ duplicate /o $input_name2 InputTriggers
 duplicate /o $input_name3 RawInputData
 
 // inverting trigger channel
-InputTriggers*=-1
-InputTriggers+=2^16
+//InputTriggers*=-1
+//InputTriggers+=2^16
 
 variable nX = DimSize(InputData,0)
 variable nY = DimSize(InputData,1)
@@ -117,7 +117,7 @@ variable nTriggers = 0
 for (ff=0;ff<nF-1;ff+=1)
 	for (yy=0;yy<nY;yy+=1)
 		for (xx=0; xx<nX; xx+=1) // KF 20160310; trigger sometimes only few pixel long
-			if (InputTriggers[xx][yy][ff]>trigger_threshold)
+			if (InputTriggers[xx][yy][ff]<2^16-trigger_threshold) // looks for negative triggers, no longer inverts original matrix
 				yy+=1
 				OutputTriggerTimes[nTriggers]=ff*nY*LineDuration+yy*LineDuration // triggertime in seconds, with line precision (2 ms)
 				OutputTriggerTimes_Frame[nTriggers]=ff // KF 20160310

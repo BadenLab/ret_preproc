@@ -36,7 +36,7 @@ string input_name2 = "wDataCh"+Num2Str(TriggerChannel)
 string output_name = "wDataCh"+Num2Str(Channel)+"_detrended"
 string output_name2 = "wDataCh"+Num2Str(TriggerChannel) // this will overwrite wDataCh2 e.g. - but there is the TriggerData_original backup
 
-duplicate /o $input_name InputData
+duplicate /o $input_name InputData_preflip
 if (waveexists($"TriggerData_original")==0)
 	duplicate /o $input_name2 TriggerData_original
 	duplicate /o $input_name2 TriggerData
@@ -46,11 +46,16 @@ else
 endif
 
 
-variable nX = DimSize(InputData,0)
-variable nY = DimSize(InputData,1)
-variable nF = DimSize(InputData,2)
 
+variable nX = DimSize(InputData_preflip,0)
+variable nY = DimSize(InputData_preflip,1)
+variable nF = DimSize(InputData_preflip,2)
 variable pp
+
+// X-Flip InputStack, but spare the light Artifact
+duplicate /o InputData_preflip InputData
+InputData[LightArtifactCut,nX-1][][]=InputData_preflip[nX-1-(p-LightArtifactCut)][q][r]
+killwaves InputData_preflip
 
 // multiplane deinterleave
 if (nPlanes>1)
@@ -91,8 +96,12 @@ for (xx=0; xx<nX; xx+=1)
 endfor
 if (SkipDetrend==0)
 	Smooth/DIM=2 Smoothingfactor, InputData
+	Multithread OutputData[][][]-=InputData[p][q][r]-Mean_image[p][q]
+else
+	Multithread OutputData[][][]=InputData[p][q][r]
 endif
-Multithread OutputData[][][]-=InputData[p][q][r]-Mean_image[p][q]
+
+
 
 // cut things
 OutputData[][][0]=OutputData[p][q][1] // copy second frame into 1st to kill frame 1 artifact
@@ -232,11 +241,8 @@ string output_name = "wDataCh"+Num2Str(Channel)+"_detrended_8bit"
 
 variable ff, xx, yy,pp
 
-// Convert to 8 bit
-make /o/n=(nX,nY,nF) OutputData = InputData[p+X_Cut][q][r]
-
-make /o/n=(nX, nY) Image_Min = 0
-make /o/n=(nX, nY) Image_Max = 0
+// Convert to 8 bit & flip Y axis (as imageJ is default Y flipped relative to Igor)
+make /o/n=(nX,nY,nF) OutputData = InputData[p+X_Cut][nY-1-q][r]
 
 	// get brightness histogram
 Make/N=(2^16) /O Brightness_Hist = 0

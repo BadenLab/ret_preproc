@@ -81,8 +81,12 @@ OS update 2018 02 11
 	
 	
 OS update 2018 02 12
+OS update 2018 02 12
 
-// Added 8 bit export of raw data button	
+// Added 8 bit export of raw data button	and of AveraageStack. Both are Y flipped	@Phil
+// Also fixed a the Detrend_Skip bug @Takeshi
+// Traces and triggers no longer inverts the Trigger Channel but insteads looks for upside down triggers @Takeshi
+	
 	
 
 	

@@ -36,7 +36,9 @@ variable Triggermode = OS_Parameters[%Trigger_Mode]
 variable Ignore1stXseconds = OS_Parameters[%Ignore1stXseconds]
 variable IgnoreLastXseconds = OS_Parameters[%IgnoreLastXseconds]
 variable AverageStack_make = OS_Parameters[%AverageStack_make]
+variable brightness_cutoff = OS_Parameters[%Brightness_cut_8bit]
 variable X_cut = OS_Parameters[%LightArtifact_cut]
+
 
 // data handling
 string input_name = "wDataCh"+Num2Str(Channel)+"_detrended"
@@ -177,8 +179,52 @@ if (AverageStack_make==1)
 			endfor
 		endfor
 	endfor
+	OutputStack[][][]/=nLoops
+	// Convert to 8 bit & flip Y axis (as imageJ is default Y flipped relative to Igor)
+	make /o/n=(nX-X_Cut,nY,SnippetDuration/FrameDuration) AverageStack_8bit = OutputStack[p][nY-1-q][r]
+
+	// get brightness histogram
+	Make/N=(2^16) /O Brightness_Hist = 0
+	Make/N=(2^16) /O currentwave_Hist = 0
+	make /o/n=(SnippetDuration/FrameDuration) currentwave = 0
+	for (xx=0;xx<nX-X_cut;xx+=1)
+		for (yy=0;yy<nY;yy+=1)
+			Multithread currentwave = AverageStack_8bit[xx][yy][p]
+			Histogram/B={0,1,2^16} currentwave,currentwave_Hist
+			Multithread Brightness_Hist[]+=currentwave_Hist[p]
+		endfor
+	endfor
+	WaveStats/Q Brightness_Hist
+	Brightness_Hist/=V_Max
 	
-	duplicate /o OutputStack $output_name3
+		
+	// find start of brightness distribution
+	variable Min_brightness = 0
+	for (pp=0; pp<2^16;pp+=1)
+		if (Brightness_Hist[pp]>brightness_cutoff)
+			Min_brightness = pp
+			pp = 2^16 // abort
+		endif
+	endfor
+	// find end of brightness distribution
+	variable Max_brightness = Min_brightness
+	for (pp=Min_brightness; pp<2^16;pp+=1)
+		if (Brightness_Hist[pp]<brightness_cutoff)
+			Max_brightness = pp
+			pp = 2^16 // abort
+		endif
+	endfor
+	print "Setting brightness between", Min_brightness, "and", Max_brightness, "for Average Stack 8 bit"
+		
+	// scaling outputwave
+	//AverageStack_8bit[][][]=(AverageStack_8bit[p][q][r]<Min_brightness)?(Min_brightness):(AverageStack_8bit[p][q][r])
+	//AverageStack_8bit[][][]=(AverageStack_8bit[p][q][r]>Max_brightness)?(Max_brightness):(AverageStack_8bit[p][q][r])
+	
+	//AverageStack_8bit[][][]-=Min_brightness
+	//AverageStack_8bit[][][]/=(Max_brightness-Min_brightness) / (2^8)	
+
+	duplicate /o OutputStack $output_name3 // within Igor it keeps the non flipped 32 bit one
+	imagesave /s/t="tiff" AverageStack_8bit // for export it spits out the flipped one at 8 bit
 
 endif
 
@@ -237,7 +283,7 @@ endif
 
 // cleanup
 killwaves InputTraces, InputTraceTimes,CurrentTrace,OutputTracesUpsampled,OutputTraceSnippets,OutputTraceAverages,OutputStack,OutputStack_avg
-killwaves OutputStimArtiAverage, currentwave, currentwave2
+killwaves OutputStimArtiAverage, currentwave2 // AverageStack_8bit, currentwave, currentwave_Hist
 //killwaves OutputStackUpsampled
 
 end
