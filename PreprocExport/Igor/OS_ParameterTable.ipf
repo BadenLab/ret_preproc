@@ -62,6 +62,10 @@ SetDimLabel 0,entry_position,LightArtifact_cut,OS_Parameters
 OS_Parameters[%LightArtifact_cut] = 5 // nPixels cut in X to remove LightArtifact - default 3
 entry_position+=1
 
+SetDimLabel 0,entry_position,Brightness_cut_8bit,OS_Parameters
+OS_Parameters[%Brightness_cut_8bit] = 0.01 // 0:1 - at what % brightness are 8 bit transforms cut. default 0.01 = 1%
+entry_position+=1
+
 SetDimLabel 0,entry_position,StimulatorDelay,OS_Parameters
 //get some variables, 
 //like the computer name (indicates which setup was used)

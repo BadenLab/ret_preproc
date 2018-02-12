@@ -50,8 +50,9 @@ function OS_GUI()
 	Button step0,pos={99,39},size={100,26},proc=OS_GUI_Buttonpress,title="Process linescan"
 	Button step1a,pos={78,39+54},size={107,26},proc=OS_GUI_Buttonpress,title="Make / Show"
 	Button step1b,pos={192,39+54},size={34,26},proc=OS_GUI_Buttonpress,title="Kill"	
-	Button step2a,pos={78,94+54},size={71,26},proc=OS_GUI_Buttonpress,title="Standard"
-	Button step2b,pos={154,94+54},size={71,26},proc=OS_GUI_Buttonpress,title="Ratiom."
+	Button step2a,pos={78,94+54},size={53,26},proc=OS_GUI_Buttonpress,title="Standard"
+	Button step2b,pos={140,94+54},size={43,26},proc=OS_GUI_Buttonpress,title="Ratiom."
+	Button step2c,pos={191,94+54},size={33,26},proc=OS_GUI_Buttonpress,title="Save"
 	Button step3a1,pos={78,155+54},size={43,20},proc=OS_GUI_Buttonpress,title="Manual"
 	Button step3a2,pos={130,155+54},size={43,20},proc=OS_GUI_Buttonpress,title="Apply"
 	Button step3a3,pos={181,155+54},size={43,20},proc=OS_GUI_Buttonpress,title="Pixels"
@@ -98,7 +99,10 @@ Function OS_GUI_Buttonpress(ba) : ButtonControl
 					break
 				case "step2b":
 					OS_DetrendRatiometric()
-					break					
+					break		
+				case "step2c":
+					OS_SaveRawAsTiff()
+					break									
 				case "step3a1":
 					OS_CallManualROI()
 					break

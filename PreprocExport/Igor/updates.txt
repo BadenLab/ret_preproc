@@ -79,4 +79,13 @@ OS update 2018 02 11
 	Plots the Other ROI Kernel and CrossCorrs against time
 	--> try setting more than 1 ROI altering the Seed ROI
 	
+	
+OS update 2018 02 12
+
+// Added 8 bit export of raw data button	
+	
+
+	
+
+	
   

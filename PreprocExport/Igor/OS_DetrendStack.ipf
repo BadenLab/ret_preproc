@@ -199,3 +199,96 @@ end
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+function OS_SaveRawAsTiff()
+
+printf "Saving PreProc Stack as Tiff..."
+
+// 1 // check for Parameter Table
+if (waveexists($"OS_Parameters")==0)
+	print "Warning: OS_Parameters wave not yet generated - doing that now..."
+	OS_ParameterTable()
+	DoUpdate
+endif
+wave OS_Parameters
+// 2 //  check for Detrended Data stack
+variable Channel = OS_Parameters[%Data_Channel]
+if (waveexists($"wDataCh"+Num2Str(Channel)+"_detrended")==0)
+	print "Warning: wDataCh"+Num2Str(Channel)+"_detrended wave not yet generated - doing that now..."
+	OS_DetrendStack()
+endif
+
+// flags from "OS_Parameters"
+variable X_cut = OS_Parameters[%LightArtifact_cut]
+variable brightness_cutoff = OS_Parameters[%Brightness_cut_8bit]
+
+// data handling
+string input_name = "wDataCh"+Num2Str(Channel)+"_detrended"
+duplicate /o $input_name InputData
+variable nX = DimSize(InputData,0) - X_cut
+variable nY = DimSize(InputData,1)
+variable nF = DimSize(InputData,2)
+
+string output_name = "wDataCh"+Num2Str(Channel)+"_detrended_8bit"
+
+variable ff, xx, yy,pp
+
+// Convert to 8 bit
+make /o/n=(nX,nY,nF) OutputData = InputData[p+X_Cut][q][r]
+
+make /o/n=(nX, nY) Image_Min = 0
+make /o/n=(nX, nY) Image_Max = 0
+
+	// get brightness histogram
+Make/N=(2^16) /O Brightness_Hist = 0
+Make/N=(2^16) /O currentwave_Hist = 0
+make /o/n=(nF) currentwave = 0
+for (xx=0;xx<nX;xx+=1)
+	for (yy=0;yy<nY;yy+=1)
+		Multithread currentwave = InputData[xx+X_cut][yy][p]
+		Histogram/B={0,1,2^16} currentwave,currentwave_Hist
+		Multithread Brightness_Hist[]+=currentwave_Hist[p]
+	endfor
+endfor
+WaveStats/Q Brightness_Hist
+Brightness_Hist/=V_Max
+
+	// find start of brightness distribution
+variable Min_brightness = 0
+for (pp=0; pp<2^16;pp+=1)
+	if (Brightness_Hist[pp]>brightness_cutoff)
+		Min_brightness = pp
+		pp = 2^16 // abort
+	endif
+endfor
+	// find end of brightness distribution
+variable Max_brightness = Min_brightness
+for (pp=Min_brightness; pp<2^16;pp+=1)
+	if (Brightness_Hist[pp]<brightness_cutoff)
+		Max_brightness = pp
+		pp = 2^16 // abort
+	endif
+endfor
+print "Setting brightness between", Min_brightness, "and", Max_brightness
+
+// scaling outputwave
+OutputData[][][]=(OutputData[p][q][r]<Min_brightness)?(Min_brightness):(OutputData[p][q][r])
+OutputData[][][]=(OutputData[p][q][r]>Max_brightness)?(Max_brightness):(OutputData[p][q][r])
+
+OutputData[][][]-=Min_brightness
+OutputData[][][]/=(Max_brightness-Min_brightness) / (2^8)
+
+
+
+
+// generate output
+duplicate /o OutputData $output_name
+imagesave /s/t="tiff" $output_name
+
+
+// cleanup
+killwaves inputData, OutputData,currentwave,currentwave_Hist
+
+// outgoing dialogue
+print " complete..."
+
+end
