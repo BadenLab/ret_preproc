@@ -35,19 +35,20 @@ variable LineDuration = OS_Parameters[%LineDuration]
 variable Ignore1stXseconds = OS_Parameters[%Ignore1stXseconds]
 variable IgnoreLastXseconds = OS_Parameters[%IgnoreLastXseconds]
 variable SD_threshold = OS_Parameters[%Noise_EventSD]
-variable FilterHalfLength_s = OS_Parameters[%Noise_FilterLength_s]
+variable FilterLength_s = OS_Parameters[%Noise_FilterLength_s]
 variable X_cut = OS_Parameters[%LightArtifact_cut]
 variable ROIKernelSmooth_space = OS_Parameters[%ROIKernelSmooth_space]
 variable Kernel_MapRange = OS_Parameters[%Kernel_MapRange]
 variable SeedROI = OS_Parameters[%ROIKernel_seedROI]
 
 // hardcoded for now: - should eventually go into OS_Parameters
-variable nS_Montage_pre = 0.5 // s - specifically for Montage - the full kernel dur is set by FilterHalfLength_s above
-variable nS_Montage_post = 1 // s
-variable nS_CrossCorr = 0.4 // s - total duration, i.e. half prior half after event
+variable nS_Montage_pre = 0.2 // s - specifically for Montage - the full kernel dur is set by FilterLength_s above
+variable nS_Montage_post = 0.4 // s
+variable nS_CrossCorr = 0.1 // s - total duration, i.e. half prior half after event
 variable CrossCorr_UseDiF = 0 // does crosscorr use Differentiated traces (1) or raw (0)?
 variable DiffSmooth = 20 // now many points (lines) are crosscrorr input traces smoothed
 variable ROIKernelSmooth_time = 2
+variable Calculate_Full_Set = 0 // takes long, makes the cross corr & Kernel image montages
 
 // data handling
 wave wParamsNum // Reads data-header
@@ -86,8 +87,8 @@ variable xx,yy,ff,rr
 variable Skip1stNFrames = Ignore1stXseconds * Framerate
 variable SkipLastNFrames = IgnoreLastXseconds * Framerate
 
-variable nF_KernelNeg = FilterHalfLength_s * Framerate
-variable nF_KernelPos = FilterHalfLength_s * Framerate
+variable nF_KernelNeg = FilterLength_s/2 * Framerate
+variable nF_KernelPos = FilterLength_s/2 * Framerate
 variable nFrames_baseline = nF_KernelNeg/2
 variable nF_Kernel = nF_KernelNeg + nF_KernelPos
 variable skipframes = 1
@@ -113,7 +114,6 @@ make /o/n=(nX,(nY+2)*nF_Montage+2) ROIKernelMontage = 0
 
 setscale /p z,-nS_CrossCorr/2,LineDuration,"s" CrossCorrStack
 
-
 // generate kernelstack
 variable nTrigs = 0
 for (ff=nF_KernelNeg+Skip1stNFrames;ff<nF-nF_KernelPos-SkipLastNFrames;ff+=1)
@@ -128,18 +128,92 @@ Print nTrigs, "events triggered"
 
 // generate CrossCorr stack
 
+
+//// generate all CrossCrossStacks between ROIs
+
+if (Calculate_Full_Set==1)
+	make /o/n=(nX,nY,nROIs) CrossCorrAllROI = NaN
+	make /o/n=(nX,nY*nROIs) CrossCorrAllROI_Montage = NaN
+	make /o/n=(nX,nY,nROIs) ROIKernelStackAll = 0
+	make /o/n=(nX,nY*nROIs) ROIKernelStackAll_Montage = 0	
+	
+	for (rr=0;rr<nRois;rr+=1)
+		make /o/n=(nF) SeedTrace = InputTraces[p][rr]
+		Differentiate/DIM=0  SeedTrace/D=SeedTrace_DIF
+		WaveStats/Q SeedTrace_Dif
+		SeedTrace_Dif-=V_Avg
+		SeedTrace_Dif/=V_SDev
+			// ROIKernels
+		make /o/n=(nX,nY,nF_Kernel) ROIKernelStack_temp = 0
+		variable nTrigs_temp = 0
+		for (ff=nF_KernelNeg+Skip1stNFrames;ff<nF-nF_KernelPos-SkipLastNFrames;ff+=1)
+			if (SeedTrace_DIF[ff]>SD_threshold)
+				Multithread ROIKernelStack_temp[][][]+=InputStack[p+X_cut][q][ff-nF_KernelNeg+r] * (SeedTrace_DIF[ff] - SD_threshold)
+				nTrigs_temp+=1
+				ff+=skipframes
+			endif
+		endfor
+		ROIKernelStack_temp/=nTrigs_temp
+		for (xx=0;xx<nX;xx+=1)
+			for (yy=0;yy<nY;yy+=1)
+				make /o/n=(nF_Kernel) currentwave = ROIKernelStack_temp[xx][yy][p]
+				WaveStats/Q Currentwave
+				ROIKernelStackAll[xx][yy][rr]=V_SDev
+			endfor
+		endfor
+		//ROIKernelStackAll[][][rr]=(ROIs_XCrop[p][q]==-rr-1)?(0):(ROIKernelStackAll[p][q][rr])
+		ROIKernelStackAll_Montage[][rr*nY,(rr+1)*nY-1]=ROIKernelStackAll[p][q-rr*nY][rr]
+		
+			// CrossCorr
+		Smooth DiffSmooth, SeedTrace_DIF
+		for (xx=0;xx<nX;xx+=1)
+			for (yy=0;yy<nY;yy+=1)
+				make /o/n=(nF) TargetTrace = InputStack[xx+X_Cut][yy][p]
+				if (CrossCorr_UseDiF==1)
+					Differentiate/DIM=0  TargetTrace/D=TargetTrace_DIF
+					Smooth DiffSmooth, TargetTrace_DIF
+					Correlate/NODC SeedTrace_DIF, TargetTrace_DIF
+					WaveStats/Q TargetTrace_DIF
+				else
+					Correlate/NODC SeedTrace, TargetTrace
+					WaveStats/Q TargetTrace
+				endif
+				CrossCorrAllROI[xx][yy][rr]=V_Max+V_Min
+			endfor
+		endfor
+		//CrossCorrAllROI[][][rr]=(ROIs_XCrop[p][q]==-rr-1)?(0):(CrossCorrAllROI[p][q][rr])
+			
+		CrossCorrAllROI_Montage[][rr*nY,(rr+1)*nY-1]=CrossCorrAllROI[p][q-rr*nY][rr]
+		print "Done ROI", rr, "/", nROIs
+	endfor
+	
+	setscale /p x,-nX/2*px_Size,px_Size,"µm" CrossCorrAllROI, ROIKernelStackAll
+	setscale /p y,-nY/2*px_Size,px_Size,"µm"  CrossCorrAllROI, ROIKernelStackAll
+
+	setscale /p x,-nX/2*px_Size,px_Size,"µm" CrossCorrAllROI_Montage, ROIKernelStackAll_Montage
+	setscale /p y,0,1/nY,"ROI"  CrossCorrAllROI_Montage, ROIKernelStackAll_Montage
+
+	
+	killwaves ROIKernelStack_temp
+endif	
+
+// generate final version for the chosen ROI
+make /o/n=(nF) SeedTrace = InputTraces[p][SeedROI]
+Differentiate/DIM=0  SeedTrace/D=SeedTrace_DIF
+WaveStats/Q SeedTrace_Dif
+SeedTrace_Dif/=V_SDev
 Smooth DiffSmooth, SeedTrace_DIF
 for (xx=0;xx<nX;xx+=1)
 	for (yy=0;yy<nY;yy+=1)
-		make /o/n=(nF) TargetTrace = InputStack[xx][yy][p]
-		Differentiate/DIM=0  TargetTrace/D=TargetTrace_DIF
-		Smooth DiffSmooth, TargetTrace_DIF
-		Correlate/NODC SeedTrace_DIF, TargetTrace_DIF
-		Correlate/NODC SeedTrace, TargetTrace
+		make /o/n=(nF) TargetTrace = InputStack[xx+X_cut][yy][p]
 		if (CrossCorr_UseDiF==1)
+			Differentiate/DIM=0  TargetTrace/D=TargetTrace_DIF
+			Smooth DiffSmooth, TargetTrace_DIF
+			Correlate/NODC SeedTrace_DIF, TargetTrace_DIF
 			Multithread CrossCorrStack[xx][yy][]=TargetTrace_DIF[r+nF -nP_CrossCorr/2]
 		else
-			Multithread CrossCorrStack[xx][yy][]=TargetTrace_DIF[r+nF -nP_CrossCorr/2]
+			Correlate/NODC SeedTrace, TargetTrace
+			Multithread CrossCorrStack[xx][yy][]=TargetTrace[r+nF -nP_CrossCorr/2]
 		endif
 	endfor
 endfor
@@ -193,7 +267,7 @@ for (rr=0;rr<nRois;rr+=1)
 	variable ROI_size = 0
 	for (xx=0;xx<nX;xx+=1)
 		for (yy=0;yy<nY;yy+=1)
-			if (ROIs[xx][yy]==ROI_value)
+			if (ROIs_XCrop[xx][yy]==ROI_value)
 				ROI_size+=1
 				ROIKernel_Traces[][rr]+=ROIKernelStack[xx][yy][p] // add up each pixel of a ROI
 				ROICrossCorr_Traces[][rr]+=CrossCorrStack[xx][yy][p] // add up each pixel of a ROI
@@ -203,24 +277,25 @@ for (rr=0;rr<nRois;rr+=1)
 	ROIKernel_Traces[][rr]/=ROI_size // now is average activity of ROI
 	ROICrossCorr_Traces[][rr]/=ROI_size // now is average activity of ROI	
 
-	make /o/n=(nP_CrossCorr) currentwave = ROICrossCorr_Traces[p][rr]
+	make /o/n=(nP_CrossCorr/4) currentwave = ROICrossCorr_Traces[p][rr] // znorm based on 1st quarter of crosscorr window
 	WaveStats/Q currentwave
-	ROICrossCorr_Traces[][rr]/=V_Max
+	ROICrossCorr_Traces[][rr]-=V_Avg
+	ROICrossCorr_Traces[][rr]/=V_SDev
 	
-	make /o/n=(nF_Kernel) currentwave = ROIKernel_Traces[p][rr]
+	make /o/n=(nF_Kernel/4) currentwave = ROIKernel_Traces[p][rr] // znorm based on 1st quarter of kernel
 	WaveStats/Q currentwave
-	ROIKernel_Traces[][rr]/=V_Max
-
+	ROIKernel_Traces[][rr]-=V_Avg
+	ROIKernel_Traces[][rr]/=V_SDev
 endfor
 
 
 
 //////////////
-setscale /p x,-nX/2*px_Size,px_Size,"µm" ROIKernelImage, ROIKernelStack, ROIKernelMontage, ROIs_XCrop
-setscale /p y,-nY/2*px_Size,px_Size,"µm"  ROIKernelImage, ROIKernelStack, ROIs_XCrop
+setscale /p x,-nX/2*px_Size,px_Size,"µm" ROIKernelImage, ROIKernelStack, ROIKernelMontage, ROIs_XCrop, CrossCorrStack
+setscale /p y,-nY/2*px_Size,px_Size,"µm"  ROIKernelImage, ROIKernelStack, ROIs_XCrop, CrossCorrStack
 setscale y,-nF_Montage_pre*nY*LineDuration,nF_Montage_post*nY*LineDuration,"s"  ROIKernelMontage
-setscale /p x,-nS_CrossCorr/2,LineDuration,"s" ROICrossCorr_Traces
-setscale /p x,-FilterHalfLength_s,LineDuration * nY,"s" ROIKernel_Traces
+setscale x,-nS_CrossCorr/2,nS_CrossCorr/2,"s" ROICrossCorr_Traces
+setscale x,-FilterLength_s/2,FilterLength_s/2,"s" ROIKernel_Traces
 
 
 // export handling
@@ -330,7 +405,24 @@ if (Display_stuff==1)
 	ModifyGraph width=0,height=0
 	
 	
+	// full montages
+	if (Calculate_Full_Set==1)
+		display /k=1
+		Appendimage /b=KernelX ROIKernelStackAll_Montage
+		Appendimage /b=CrossCorrX CrossCorrAllROI_Montage
+		ModifyGraph fSize=8,lblPos(KernelX)=47,lblPos(CrossCorrX)=47;DelayUpdate
+		ModifyGraph axisEnab(left)={0.05,1},axisEnab(KernelX)={0.05,0.5};DelayUpdate
+		ModifyGraph axisEnab(CrossCorrX)={0.55,1},freePos(KernelX)={0,kwFraction};DelayUpdate
+		ModifyGraph freePos(CrossCorrX)={0,kwFraction};DelayUpdate
+		Label left "\\Z10\\U Reference index";DelayUpdate
+		Label KernelX "\\Z10 ROI-Kernel projections";DelayUpdate
+		Label CrossCorrX "\\Z10Crosscorrelation projections"
+		ModifyImage ROIKernelStackAll_Montage ctab= {0,1,VioletOrangeYellow,0}
+		ModifyImage CrossCorrAllROI_Montage ctab= {*,*,VioletOrangeYellow,0}
 	
+	
+	
+	endif
 	
 endif
 
