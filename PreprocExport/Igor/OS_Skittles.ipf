@@ -180,10 +180,11 @@ end
 function OS_SkittlesSweep()
 
 
-variable nLEDs = 19
-make /o/n=(nLEDs) SkittlesWavelengths = {671,641,615,598,572,557,535,519,505,494,480,466,446,424,407,393,368,356,320}
-variable ReadoutTimes_s = 0.2 // i.e. 100 ms after Start and before End of step
-variable ReadoutWindow_s = 0.3 // i.e. integrate 100 ms worth of trace
+variable nLEDs = 15
+//make /o/n=(nLEDs) SkittlesWavelengths = {671,641,615,598,572,557,535,519,505,494,480,466,446,424,407,393,368,356,320}
+make /o/n=(nLEDs) SkittlesWavelengths = {671,641,615,598,557,535,519,494,466,446,424,407,393,368,356}
+variable ReadoutTimes_s = 0.4 // i.e. 100 ms after Start and before End of step
+variable ReadoutWindow_s = 0.1 // i.e. integrate 100 ms worth of trace
 
 
 // 1 // check for Parameter Table
@@ -261,9 +262,9 @@ endfor
 //Extract Tunings
 
 variable ONPeakTime_P = ReadoutTimes_s/LineDuration
-variable ONsusTime_P = nP/2 - ReadoutTimes_s/LineDuration
-variable OFFPeakTime_P = nP/2 + ReadoutTimes_s/LineDuration
-variable OFFsustime_P = nP - ReadoutTimes_s/LineDuration
+variable ONsusTime_P = nP/4 - ReadoutTimes_s/LineDuration
+variable OFFPeakTime_P = nP/4 + ReadoutTimes_s/LineDuration
+variable OFFsustime_P = nP/2 - ReadoutTimes_s/LineDuration
 
 make /o/n=(nLEDs,4,nROIs) SweepTuning_mean = NaN
 make /o/n=(nLEDs,4,nCompleteLoops,nROIs) SweepTuning_snippets = NaN
@@ -272,39 +273,43 @@ make /o/n=(ReadoutWindow_s/LineDuration) currentwave = 0
 for (rr=0;rr<nROIs;rr+=1)
 	for (ll=0;ll<nLEDs;ll+=1)
 	
+		make /o/n=(nP/4) currentwave_base = SweepMeans[p+(nP/4)*3-1][ll][rr] // get last quarter
+		Wavestats/Q currentwave_base
+		Variable Currentbase = V_Avg
+	
 		Multithread currentwave[]=SweepMeans[p+ONPeakTime_P][ll][rr]
 		Wavestats/Q currentwave
-		SweepTuning_mean[ll][0][rr]=V_Avg
+		SweepTuning_mean[ll][0][rr]=V_Avg - Currentbase
 		
 		Multithread currentwave[]=SweepMeans[-p+ONsusTime_P][ll][rr]
 		Wavestats/Q currentwave
-		SweepTuning_mean[ll][1][rr]=V_Avg
+		SweepTuning_mean[ll][1][rr]=V_Avg - Currentbase
 
 		Multithread currentwave[]=SweepMeans[p+OFFPeakTime_P][ll][rr]
 		Wavestats/Q currentwave
-		SweepTuning_mean[ll][2][rr]=V_Avg
+		SweepTuning_mean[ll][2][rr]=V_Avg - Currentbase
 
 		Multithread currentwave[]=SweepMeans[-p+OFFsusTime_P][ll][rr]
 		Wavestats/Q currentwave
-		SweepTuning_mean[ll][3][rr]=V_Avg
+		SweepTuning_mean[ll][3][rr]=V_Avg - Currentbase
 
 		for (cc=0;cc<nCompleteLoops;cc+=1)
 
 			Multithread currentwave[]=SweepSnippets[p+ONPeakTime_P][ll][cc][rr]
 			Wavestats/Q currentwave
-			SweepTuning_Snippets[ll][0][cc][rr]=V_Avg
+			SweepTuning_Snippets[ll][0][cc][rr]=V_Avg - Currentbase
 			
 			Multithread currentwave[]=SweepSnippets[p+ONsusTime_P][ll][cc][rr]
 			Wavestats/Q currentwave
-			SweepTuning_Snippets[ll][1][cc][rr]=V_Avg
+			SweepTuning_Snippets[ll][1][cc][rr]=V_Avg - Currentbase
 			
 			Multithread currentwave[]=SweepSnippets[p+OFFPeakTime_P][ll][cc][rr]
 			Wavestats/Q currentwave
-			SweepTuning_Snippets[ll][2][cc][rr]=V_Avg
+			SweepTuning_Snippets[ll][2][cc][rr]=V_Avg - Currentbase
 			
 			Multithread currentwave[]=SweepSnippets[p+OFFsusTime_P][ll][cc][rr]
 			Wavestats/Q currentwave
-			SweepTuning_Snippets[ll][3][cc][rr]=V_Avg
+			SweepTuning_Snippets[ll][3][cc][rr]=V_Avg - Currentbase
 
 		endfor
 
@@ -358,21 +363,25 @@ if (display_tunings==1)
 		variable colorposition = 255 * (rr+1)/nRois
 		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
 		ModifyGraph lsize($tracename)=1.5
+		ModifyGraph mode($tracename)=7,hbFill($tracename)=5
 		
 		tracename = output_name3+"#"+Num2Str(rr*4+1)
 		Appendtograph /l=$YAxisName /b=XOnSus $output_name3[][1][rr] vs SkittlesWavelengths // ON sus Means
 		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
 		ModifyGraph lsize($tracename)=1.5
+		ModifyGraph mode($tracename)=7,hbFill($tracename)=5		
 
 		tracename = output_name3+"#"+Num2Str(rr*4+2)		
 		Appendtograph /l=$YAxisName /b=XOfftr $output_name3[][2][rr] vs SkittlesWavelengths // OFF tr Means
 		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
 		ModifyGraph lsize($tracename)=1.5
+		ModifyGraph mode($tracename)=7,hbFill($tracename)=5
 		
 		tracename = output_name3+"#"+Num2Str(rr*4+3)
 		Appendtograph /l=$YAxisName /b=XOffSus $output_name3[][3][rr] vs SkittlesWavelengths // OFF sus Means
 		ModifyGraph rgb($tracename)=(M_Colors[colorposition][0],M_Colors[colorposition][1],M_Colors[colorposition][2])
 		ModifyGraph lsize($tracename)=1.5
+		ModifyGraph mode($tracename)=7,hbFill($tracename)=5
 		
 		variable plotfrom = (1-((rr+1)/nRois))*0.85+0.05
 		variable plotto = (1-(rr/nRois))*0.85+0.05
