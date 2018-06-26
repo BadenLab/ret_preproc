@@ -179,7 +179,7 @@ for (xx=0;xx<nX;xx+=1)
 	for (yy=0;yy<nY;yy+=1)
 		for (ff=0; ff<nF; ff+=1)
 			// This function will need to be modified for more complex scan paths
-			OutputPixelTimes[xx][yy][ff] = r*nY*2/1000 + p*LineDuration + q*LineDuration/wParamsNum[%User_dxPix] + StimulatorDelay/1000
+			OutputPixelTimes[xx][yy][ff] = ff*nY*LineDuration + yy*LineDuration + xx*LineDuration/wParamsNum[%User_dxPix] + StimulatorDelay/1000
 		endfor 
 	endfor
 endfor
