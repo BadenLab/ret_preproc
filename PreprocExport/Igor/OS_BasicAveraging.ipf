@@ -74,6 +74,7 @@ variable Ignore1stXTriggers = 0
 variable IgnoreLastXTriggers = 0
 variable last_data_time_allowed = InputTraceTimes[nF-1][0]-IgnoreLastXseconds
 
+
 for (tt=0;tt<Dimsize(triggertimes,0);tt+=1)
 	if (NumType(Triggertimes[tt])==0)
 		if (Ignore1stXseconds>Triggertimes[tt])
@@ -90,12 +91,15 @@ if (Ignore1stXTriggers>0)
 	print "ignoring first", Ignore1stXTriggers, "Triggers"
 endif
 variable SnippetDuration = Triggertimes[TriggerMode+Ignore1stXTriggers]-Triggertimes[0+Ignore1stXTriggers] // in seconds
-variable Last_Snippet_Length = last_data_time_allowed-Triggertimes[nTriggers-1]
+variable nLoops = floor((nTriggers-Ignore1stXTriggers-IgnoreLastXTriggers) / TriggerMode)
+
+variable Last_Snippet_Length = last_data_time_allowed - ((nLoops * SnippetDuration) + Triggertimes[Ignore1stXTriggers])  
+
+print Last_Snippet_Length
 
 if (Last_Snippet_Length<SnippetDuration)
 	IgnoreLastXTriggers = TriggerMode
 endif
-variable nLoops = floor((nTriggers-Ignore1stXTriggers-IgnoreLastXTriggers) / TriggerMode)
 
 print nTriggers, "Triggers, ignoring 1st",  Ignore1stXTriggers, "and last", IgnoreLastXTriggers, "and skipping in", TriggerMode, "gives", nLoops, "complete loops"
 print "Note: Last", IgnoreLastXseconds, "s are also clipped"
